@@ -53,44 +53,9 @@ struct MapScene: View {
                 await loadDataAndCreateBars()
             }
             
-            // Enable input for gestures
-            rig.components.set(InputTargetComponent())
-            rig.components.set(CollisionComponent(shapes: [.generateBox(size: [2, 0.1, 2])]))
-            
-            // Add gestures to the view
-            content.subscribe(to: SceneEvents.Update.self) { _ in
-                // This ensures scene is ready
-            }
+            // Gestures disabled - map stays fixed in place
+            // This prevents the drift issue where bars separate from their map positions
         }
-        .gesture(
-            DragGesture()
-                .targetedToAnyEntity()
-                .onChanged { value in
-                    guard let rig = self.mapRig else { return }
-                    let translation = value.convert(value.translation3D, from: .local, to: rig.parent!)
-                    rig.position.x = Float(translation.x)
-                    rig.position.z = Float(translation.z)
-                }
-        )
-        .gesture(
-            RotateGesture()
-                .targetedToAnyEntity()
-                .onChanged { value in
-                    guard let rig = self.mapRig else { return }
-                    let rotation = Float(value.rotation.radians)
-                    rig.transform.rotation = simd_quatf(angle: rotation, axis: [0, 1, 0])
-                }
-        )
-        .gesture(
-            MagnifyGesture()
-                .targetedToAnyEntity()
-                .onChanged { value in
-                    guard let rig = self.mapRig else { return }
-                    let scale = Float(value.magnification)
-                    let clampedScale = min(max(scale, 0.75), 1.5)
-                    rig.transform.scale = [clampedScale, clampedScale, clampedScale]
-                }
-        )
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int {
                 Task {
@@ -291,8 +256,8 @@ struct MapScene: View {
                 barEntity.isEnabled = true
                 
             } else {
-                // No cases - hide bar
-                barEntity.scale = [2, 0.001, 2]  // Keep X and Z at 2 even when hidden
+                // No cases - hide bar completely
+                barEntity.scale = [0, 0, 0]  // Completely hide
                 barEntity.position.y = 0.01
                 barEntity.isEnabled = false
             }
@@ -335,10 +300,6 @@ struct MapScene: View {
             targetColor = .gray
         }
         
-        // Calculate target values
-        let scaleY = targetHeight / 0.005
-        let targetY = 0.01 + (targetHeight / 2)
-        
         // Store current X and Z positions (these should never change)
         let currentX = barEntity.position.x
         let currentZ = barEntity.position.z
@@ -346,15 +307,29 @@ struct MapScene: View {
         // Cancel any existing animations on this entity
         barEntity.stopAllAnimations()
         
-        // Create fresh transform with fixed X and Z
-        let targetTransform = Transform(
-            scale: [2, scaleY, 2],  // X and Z scaled by 2 for 10mm bars
-            rotation: simd_quatf(angle: 0, axis: [0, 1, 0]),  // No rotation
-            translation: [currentX, targetY, currentZ]
-        )
-        
-        // Move to target with a clean transform
-        barEntity.move(to: targetTransform, relativeTo: nil, duration: TimeInterval(duration))
+        // Check if we need to hide the bar completely
+        if yearData == nil || yearData?.bin == 0 {
+            // No data - animate to invisible
+            let targetTransform = Transform(
+                scale: [0, 0, 0],  // Completely hide
+                rotation: simd_quatf(angle: 0, axis: [0, 1, 0]),
+                translation: [currentX, 0.01, currentZ]
+            )
+            barEntity.move(to: targetTransform, relativeTo: nil, duration: TimeInterval(duration))
+            barEntity.isEnabled = false
+        } else {
+            // Has data - animate to proper height
+            let scaleY = targetHeight / 0.005
+            let targetY = 0.01 + (targetHeight / 2)
+            
+            let targetTransform = Transform(
+                scale: [2, scaleY, 2],  // X and Z scaled by 2 for 10mm bars
+                rotation: simd_quatf(angle: 0, axis: [0, 1, 0]),
+                translation: [currentX, targetY, currentZ]
+            )
+            barEntity.move(to: targetTransform, relativeTo: nil, duration: TimeInterval(duration))
+            barEntity.isEnabled = true
+        }
         
         // Update color
         if var material = barEntity.model?.materials.first as? UnlitMaterial {
