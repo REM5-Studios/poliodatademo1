@@ -1,0 +1,61 @@
+Entity,Code,Year,Value,Bin
+Afghanistan,AFG,2000,120,5
+Afghanistan,AFG,2001,11,3
+Afghanistan,AFG,2002,10,3
+Angola,AGO,2000,115,5
+Angola,AGO,2001,1,1
+Benin,BEN,2000,1,1
+Burkina Faso,BFA,2002,1,1
+Bangladesh,BGD,2000,198,6
+Bulgaria,BGR,2001,2,2
+Central African Republic,CAF,2000,3,2
+Cote d'Ivoire,CIV,2000,1,1
+Democratic Republic of Congo,COD,2000,603,7
+Congo,COG,2000,47,5
+Cape Verde,CPV,2000,56,5
+Dominican Republic,DOM,2000,11,3
+Dominican Republic,DOM,2001,2,2
+Algeria,DZA,2001,1,1
+Egypt,EGY,2000,4,3
+Egypt,EGY,2001,5,3
+Egypt,EGY,2002,7,3
+Eritrea,ERI,2000,8,3
+Ethiopia,ETH,2000,152,6
+Ethiopia,ETH,2001,1,1
+Georgia,GEO,2001,1,1
+Ghana,GHA,2000,104,5
+Gambia,GMB,2000,6,3
+Haiti,HTI,2000,1,1
+Haiti,HTI,2001,7,3
+Indonesia,IDN,2000,35,4
+India,IND,2000,265,6
+India,IND,2001,268,6
+India,IND,2002,1600,8
+Iran,IRN,2000,3,2
+Iraq,IRQ,2000,4,3
+Madagascar,MDG,2001,1,1
+Madagascar,MDG,2002,4,3
+Myanmar,MMR,2000,44,5
+Mozambique,MOZ,2000,2,2
+Mauritania,MRT,2001,1,1
+Niger,NER,2000,33,4
+Niger,NER,2001,6,3
+Niger,NER,2002,3,2
+Nigeria,NGA,2000,638,7
+Nigeria,NGA,2001,56,5
+Nigeria,NGA,2002,202,6
+Nepal,NPL,2000,29,4
+Pakistan,PAK,2000,199,6
+Pakistan,PAK,2001,119,5
+Pakistan,PAK,2002,90,5
+Philippines,PHL,2001,3,2
+Sudan,SDN,2000,79,5
+Sudan,SDN,2001,1,1
+Sierra Leone,SLE,2000,34,4
+Somalia,SOM,2000,96,5
+Somalia,SOM,2001,7,3
+Somalia,SOM,2002,3,2
+Chad,TCD,2000,60,5
+Thailand,THA,2000,20,4
+Zambia,ZMB,2001,3,2
+Zambia,ZMB,2002,2,2
