@@ -10,7 +10,7 @@ import RealityKit
 
 struct ContentView: View {
     @Environment(AppModel.self) var appModel
-    @State private var currentYear = 2000
+    @State private var currentYear = 1980
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,7 +20,7 @@ struct ContentView: View {
                     .font(.system(size: 42, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
                 
-                Text("Explore global polio cases from 2000 to 2023")
+                Text("Explore global polio cases from 1980 to 2023")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }

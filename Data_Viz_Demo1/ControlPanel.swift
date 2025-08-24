@@ -12,7 +12,7 @@ struct ControlPanel: View {
     let onYearChanged: (Int) -> Void
     
     // For smooth slider animation
-    @State private var sliderValue: Double = 2000
+    @State private var sliderValue: Double = 1980
     
     var body: some View {
         VStack(spacing: 30) {
@@ -28,12 +28,12 @@ struct ControlPanel: View {
             
             // Native visionOS slider with edge labels
             HStack(spacing: 20) {
-                Text("2000")
+                Text("1980")
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .frame(width: 50)
                 
-                Slider(value: $sliderValue, in: 2000...2023, step: 1)
+                Slider(value: $sliderValue, in: 1980...2023, step: 1)
                     .frame(width: 350)
                     .tint(.blue)
                     .onChange(of: sliderValue) { _, newValue in

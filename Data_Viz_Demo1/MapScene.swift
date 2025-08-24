@@ -13,7 +13,7 @@ import Spatial
 
 struct MapScene: View {
     @Environment(AppModel.self) var appModel
-    @State private var currentYear = 2000
+    @State private var currentYear = 1980
     @State private var mapRig: Entity?
     @State private var barsRoot: Entity?
     @State private var barEntities: [String: ModelEntity] = [:]

@@ -1,11 +1,16 @@
 # Data Processing Pipeline - Quick Reference
 
-## Step-by-Step Process to Regenerate Data
+## Primary Data Update Process
+
+For updating polio case data, see the [Data Management Guide](DATA_MANAGEMENT_GUIDE.md).
+
+## Map and Centroid Generation Process
+
+Only needed if updating country boundaries or positions.
 
 ### Prerequisites
 - Python 3.x with packages: `geopandas`, `pandas`, `matplotlib`, `pillow`, `shapely`
 - Natural Earth shapefile: `ne_10m_admin_0_countries.shp`
-- Raw polio data CSVs
 
 ### Pipeline Commands
 
@@ -63,7 +68,7 @@ Must be in `Data_Viz_Demo1/DataFiles/`:
 - `bins.csv` - Height and color mapping
 - `centroids.json` - Country positions
 - `countries.csv` - List of all countries
-- `year_2000.csv`, `year_2001.csv`, `year_2002.csv` - Case data
+- `year_YYYY.csv` files - Case data for each year (1980-2023)
 
 Must be in `Assets.xcassets`:
 - `world_equirect.png` - Map texture

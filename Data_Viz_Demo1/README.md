@@ -1,70 +1,82 @@
-# Polio Data Visualization for visionOS
+# Polio Data Visualization for Apple Vision Pro
 
-An immersive 3D visualization for Apple Vision Pro showing global reported paralytic polio cases (2000-2002) with 3D bars rising from country locations on a world map.
+An immersive 3D data visualization showing the global fight against polio from 1980 to 2023.
+
+## Overview
+
+This visionOS app presents polio case data as 3D bars rising from a world map, allowing users to see the dramatic reduction in cases over 44 years. Built exclusively for Apple Vision Pro using SwiftUI and RealityKit.
 
 ## Features
 
-- **Immersive 3D Experience**: Tabletop visualization at comfortable viewing height
-- **Interactive Controls**: Drag to move, rotate, and pinch to zoom the map
-- **Animated Transitions**: Smooth animations when switching between years
-- **Data-Driven Colors**: Visual gradient from light (few cases) to dark red (many cases)
+- **Immersive 3D Visualization**: Bars rise from country centroids on a floating world map
+- **Time Navigation**: Slider to explore any year from 1980-2023
+- **Gesture Controls**: Drag to rotate, pinch to scale, two-finger drag to move
+- **Animated Transitions**: Smooth animations when changing years
+- **Color-Coded Data**: Yellow (low) to dark red (high) representing case severity
+
+## Data
+
+- **Source**: Our World in Data (estimated paralytic polio cases)
+- **Coverage**: 1980-2023, 201 countries
+- **Notable Insights**:
+  - 1980: 113 countries with 736,820 total cases
+  - 2023: 25 countries with 4,353 total cases (99.4% reduction)
+  - Only 2 endemic countries remain: Pakistan and Afghanistan
+
+## Technical Stack
+
+- **Platform**: visionOS 2.0+
+- **Frameworks**: SwiftUI, RealityKit
+- **Language**: Swift 5.9
+- **Xcode**: 15.0+
 
 ## Project Structure
 
 ```
 Data_Viz_Demo1/
-├── DataFiles/             # Production data (bundled with app)
-│   ├── bins.csv          # Height/color mapping for 11 levels
-│   ├── countries.csv     # 199 ISO3 country codes
-│   ├── centroids.json    # Normalized country positions
-│   └── year_*.csv        # Case data by year
-│
-├── Assets.xcassets/      # Map texture
-│   └── world_equirect.imageset/
-│
-├── WorkingFiles/         # Development files (not bundled)
-│   ├── Scripts/          # Python data processing scripts
-│   └── RawData/          # Source Natural Earth data
-│
-└── Swift Files:
-    ├── Data_Viz_Demo1App.swift  # App entry point
-    ├── ContentView.swift         # 2D window UI
-    ├── ImmersiveView.swift       # Immersive space wrapper
-    ├── MapScene.swift            # Main 3D visualization
-    ├── DataLoader.swift          # Data loading logic
-    ├── ControlPanel.swift        # Year selector UI
-    └── AppModel.swift            # App state management
+├── ContentView.swift        # Main window UI
+├── ControlPanel.swift       # Year selection slider
+├── ImmersiveView.swift      # Container for 3D scene
+├── MapScene.swift           # Core 3D visualization
+├── DataLoader.swift         # CSV/JSON data loading
+├── DataFiles/               # Processed data files
+├── Assets.xcassets/         # Map texture and app icons
+└── WorkingFiles/            # Data processing scripts
 ```
 
-## Technical Details
+## Key Components
 
-- **Platform**: visionOS 2.5+ (Apple Vision Pro exclusive)
-- **Frameworks**: SwiftUI, RealityKit
-- **Data Source**: Natural Earth shapefiles + WHO polio data
-- **Map Projection**: Equirectangular (4096×2048)
+### MapScene
+- Creates and manages the 3D scene
+- Handles bar creation and animation
+- Manages gesture interactions
 
-## Documentation
+### DataLoader
+- Singleton pattern for data management
+- Loads bins, countries, centroids, and year data
+- Handles both 2-column and 4-column CSV formats
 
-- **[PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md)**: Complete development guide
-- **[DATA_PROCESSING_PIPELINE.md](DATA_PROCESSING_PIPELINE.md)**: Data regeneration steps
-- **[COORDINATE_SYSTEM_NOTES.md](COORDINATE_SYSTEM_NOTES.md)**: Coordinate system details
+### Data Processing
+- Python scripts in `WorkingFiles/Scripts/`
+- Converts raw OWID data to app format
+- Applies bin categorization for visual heights
 
-## Quick Start
+## Installation
 
-1. Open `Data_Viz_Demo1.xcodeproj` in Xcode 15.2+
-2. Select visionOS Simulator or device
-3. Build and run
-4. Click "Show Immersive Space"
-5. Use year buttons to explore 2000-2002 data
+1. Open `Data_Viz_Demo1.xcodeproj` in Xcode
+2. Select your development team
+3. Build and run on Apple Vision Pro or simulator
 
-## Key Visualizations
+## Data Updates
 
-- **2000**: Significant polio presence in Africa and South Asia
-- **2001**: Reduction in cases, concentrated in fewer countries  
-- **2002**: Further reduction, endemic areas becoming apparent
+See [DATA_MANAGEMENT_GUIDE.md](../DATA_MANAGEMENT_GUIDE.md) for detailed instructions on updating the data.
 
 ## Credits
 
-- **Data**: World Health Organization (via Our World in Data)
-- **Maps**: Natural Earth (public domain)
-- **Development**: Built for Apple Vision Pro spatial computing
+- Data: Our World in Data, WHO
+- Map Data: Natural Earth
+- Development: REM5 Studios
+
+## License
+
+[Add your license here]
