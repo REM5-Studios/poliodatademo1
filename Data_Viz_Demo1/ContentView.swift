@@ -58,6 +58,24 @@ struct ContentView: View {
                 }
                 .padding(.top, 20)
                 .frame(maxHeight: .infinity)
+                
+                // Reset map position button
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        NotificationCenter.default.post(
+                            name: .resetMapPosition,
+                            object: nil
+                        )
+                    }) {
+                        Label("Reset Map Position", systemImage: "arrow.counterclockwise")
+                            .font(.callout)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 20)
+                }
             }
             
             Spacer()
@@ -68,6 +86,7 @@ struct ContentView: View {
 
 extension Notification.Name {
     static let yearChanged = Notification.Name("yearChanged")
+    static let resetMapPosition = Notification.Name("resetMapPosition")
 }
 
 #Preview(windowStyle: .automatic) {

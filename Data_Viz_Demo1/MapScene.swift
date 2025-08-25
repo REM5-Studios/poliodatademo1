@@ -36,17 +36,28 @@ struct MapScene: View {
     // 3D map entity
     @State private var map3DEntity: Entity?
     
+    // World anchor that can be updated
+    @State private var worldAnchor: AnchorEntity?
+    
+
+    
+
+    
     var body: some View {
         RealityView { content in
             // Create world anchor at table height, closer to window
-            let worldAnchor = AnchorEntity(world: [0, 0.85, -1.2])
-            content.add(worldAnchor)
+            let anchor = AnchorEntity(world: [0, 0.85, -1.2])
+            content.add(anchor)
+            worldAnchor = anchor
             
             // Create map rig (parent for all map elements)
             let rig = Entity()
             rig.name = "MapRig"
-            worldAnchor.addChild(rig)
+            anchor.addChild(rig)
             mapRig = rig
+            
+
+
             
             // Create map plane
             if let mapEntity = await createMapPlane() {
@@ -78,14 +89,10 @@ struct MapScene: View {
                 }
             }
         }
-        .overlay(alignment: .topTrailing) {
-            // Data status
-            if let error = loadError {
-                Text("Error: \(error)")
-                    .foregroundColor(.red)
-                    .padding()
-            }
+        .onReceive(NotificationCenter.default.publisher(for: .resetMapPosition)) { _ in
+            resetMapPosition()
         }
+
         .gesture(
             SpatialTapGesture()
                 .targetedToAnyEntity()
@@ -98,6 +105,21 @@ struct MapScene: View {
                 }
         )
 
+
+
+
+    }
+    
+    // MARK: - Map Positioning
+    
+    private func resetMapPosition() {
+        guard let rig = mapRig else { return }
+        
+        // Use the proper visionOS API to reset position
+        // Only modify position, not scale or rotation
+        Task { @MainActor in
+            rig.position = .zero
+        }
     }
     
     // MARK: - Map Creation
@@ -136,6 +158,8 @@ struct MapScene: View {
         return mapEntity
     }
     
+
+    
     // MARK: - 3D Map Creation
     
     private func create3DMap() async -> Entity? {
@@ -158,8 +182,8 @@ struct MapScene: View {
             map3D.transform.rotation = simd_quatf(angle: -.pi/2, axis: [1, 0, 0])
             
             // Position with manual offset to align with 2D map
-            // X: 3.7cm right, Y: 1.5cm up, Z: 1.8cm forward/down
-            map3D.position = [0.037, 0.015, -0.018]
+            // X: 3.7cm right, Y: 0.5cm up, Z: 1.8cm forward/down
+            map3D.position = [0.037, 0.005, -0.018]
             
             // Optional: Add a slight transparency to see both maps
             // map3D.opacity = 0.8
