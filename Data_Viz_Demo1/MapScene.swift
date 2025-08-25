@@ -33,6 +33,9 @@ struct MapScene: View {
     private let mapWidth: Float = 1.2
     private let mapHeight: Float = 0.6
     
+    // 3D map entity
+    @State private var map3DEntity: Entity?
+    
     var body: some View {
         RealityView { content in
             // Create world anchor at table height, closer to window
@@ -48,6 +51,12 @@ struct MapScene: View {
             // Create map plane
             if let mapEntity = await createMapPlane() {
                 rig.addChild(mapEntity)
+                
+                // Add 3D map
+                if let map3D = await create3DMap() {
+                    rig.addChild(map3D)
+                    map3DEntity = map3D
+                }
                 
                 // Create bars root entity
                 let barsContainer = Entity()
@@ -118,10 +127,48 @@ struct MapScene: View {
         // Rotate to lie flat (XZ plane with Y up)
         mapEntity.transform.rotation = simd_quatf(angle: -.pi/2, axis: [1, 0, 0])
         
+        // Hide the 2D map plane (set opacity to 1.0 to show it again)
+        mapEntity.components.set(OpacityComponent(opacity: 0.0))
+        
         // Generate collision shape for tap detection
         mapEntity.generateCollisionShapes(recursive: false)
         
         return mapEntity
+    }
+    
+    // MARK: - 3D Map Creation
+    
+    private func create3DMap() async -> Entity? {
+        do {
+            // Load the 3D map model from RealityKitContent
+            let map3D = try await Entity(named: "WorldMap3D", in: realityKitContentBundle)
+            map3D.name = "Map3D"
+            
+            // Scale to match the 2D map dimensions (adjust these values as needed)
+            // The 2D map is 1.2m × 0.6m
+            let targetWidth: Float = mapWidth  // 1.2 meters
+            
+            // Get the model's bounding box to calculate proper scaling
+            let bounds = map3D.visualBounds(relativeTo: nil)
+            let modelWidth = bounds.max.x - bounds.min.x
+            let scaleFactor = targetWidth / modelWidth
+            map3D.scale = [scaleFactor, scaleFactor, scaleFactor]
+            
+            // Rotate to lie flat (same as 2D map - rotate 90 degrees around X axis)
+            map3D.transform.rotation = simd_quatf(angle: -.pi/2, axis: [1, 0, 0])
+            
+            // Position with manual offset to align with 2D map
+            // X: 3.7cm right, Y: 1.5cm up, Z: 1.8cm forward/down
+            map3D.position = [0.037, 0.015, -0.018]
+            
+            // Optional: Add a slight transparency to see both maps
+            // map3D.opacity = 0.8
+            
+            return map3D
+        } catch {
+            print("Failed to load 3D map: \(error)")
+            return nil
+        }
     }
     
     // MARK: - Data Loading and Bar Creation
@@ -401,7 +448,6 @@ struct MapScene: View {
         // Create background panel with rounded corners - bigger size with more padding
         let panelWidth: Float = 0.20
         let panelHeight: Float = 0.075
-        let panelDepth: Float = 0.005
         // Use generatePlane with corner radius for better control
         print("Creating info box plane with dimensions: \(panelWidth) x \(panelHeight)")
         let panelMesh = MeshResource.generatePlane(
