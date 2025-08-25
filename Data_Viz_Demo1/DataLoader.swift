@@ -46,6 +46,7 @@ final class DataLoader {
     private(set) var countries: [String: Country] = [:]
     private(set) var centroids: [String: SIMD2<Float>] = [:]
     private(set) var currentYearData: [String: YearData] = [:]
+    private var caseCounts: [String: [String: Int]] = [:] // year -> country -> cases
     
     // Loading state
     private(set) var isLoaded = false
@@ -64,6 +65,7 @@ final class DataLoader {
                 group.addTask { try await self.loadBins() }
                 group.addTask { try await self.loadCountries() }
                 group.addTask { try await self.loadCentroids() }
+                group.addTask { try await self.loadCaseCounts() }
                 
                 try await group.waitForAll()
             }
@@ -124,7 +126,7 @@ final class DataLoader {
                 guard let binValue = Int(components[1]) else { continue }
                 bin = binValue
                 entity = countries[code]?.name ?? code
-                value = bin > 0 ? 1 : 0
+                value = 0  // We'll use the actual lookup for display
             }
             
             yearData[code] = YearData(code: code, entity: entity, value: value, bin: bin)
@@ -133,6 +135,11 @@ final class DataLoader {
         currentYearData = yearData
         print("DataLoader: Loaded \(yearData.count) entries for year \(year)")
         return yearData
+    }
+    
+    /// Get actual case count for a specific country and year
+    func getActualCases(for countryCode: String, year: Int) -> Int? {
+        return caseCounts[String(year)]?[countryCode]
     }
     
     // MARK: - Private Loading Methods
@@ -231,6 +238,24 @@ final class DataLoader {
         }
         
         centroids = loadedCentroids
+    }
+    
+    private func loadCaseCounts() async throws {
+        // Try both with and without DataFiles subdirectory
+        var url = Bundle.main.url(forResource: "case_counts", withExtension: "json", subdirectory: "DataFiles")
+        if url == nil {
+            url = Bundle.main.url(forResource: "case_counts", withExtension: "json")
+        }
+        guard let url = url else {
+            print("Warning: case_counts.json not found - popup will show approximate values")
+            return // This is optional data, so don't throw error
+        }
+        
+        let data = try Data(contentsOf: url)
+        caseCounts = try JSONDecoder().decode([String: [String: Int]].self, from: data)
+        
+        let totalCases = caseCounts.values.flatMap { $0.values }.reduce(0, +)
+        print("DataLoader: Loaded case counts - \(caseCounts.count) years, \(totalCases) total cases")
     }
 }
 
