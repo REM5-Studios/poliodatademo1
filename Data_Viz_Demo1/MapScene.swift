@@ -149,9 +149,6 @@ struct MapScene: View {
         // Rotate to lie flat (XZ plane with Y up)
         mapEntity.transform.rotation = simd_quatf(angle: -.pi/2, axis: [1, 0, 0])
         
-        // Hide the 2D map plane (set opacity to 1.0 to show it again)
-        mapEntity.components.set(OpacityComponent(opacity: 0.0))
-        
         // Generate collision shape for tap detection
         mapEntity.generateCollisionShapes(recursive: false)
         
