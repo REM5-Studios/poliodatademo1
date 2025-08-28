@@ -52,15 +52,29 @@ final class DataLoader {
     private(set) var isLoaded = false
     private(set) var loadError: Error?
     
+    // Concurrency protection + simple caching (MainActor for simplicity)
+    private var staticDataTask: Task<Void, Error>?
+    private var yearLoadTasks: [Int: Task<[String: YearData], Error>] = [:]
+    private var yearDataCache: [Int: [String: YearData]] = [:] // Simple LRU cache
+    
     private init() {}
     
     // MARK: - Public Methods
     
     /// Load all static data (bins, countries, centroids)
     func loadStaticData() async throws {
-        print("DataLoader: Starting static data load...")
+        // Return immediately if already loaded
+        if isLoaded { return }
         
-        do {
+        // If already loading, wait for existing task
+        if let existingTask = staticDataTask {
+            return try await existingTask.value
+        }
+        
+        // Create new loading task
+        let task = Task<Void, Error> {
+            print("DataLoader: Starting static data load...")
+            
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask { try await self.loadBins() }
                 group.addTask { try await self.loadCountries() }
@@ -69,17 +83,68 @@ final class DataLoader {
                 
                 try await group.waitForAll()
             }
-            isLoaded = true
-            print("DataLoader: Static data load complete! Bins: \(bins.count), Countries: \(countries.count), Centroids: \(centroids.count)")
+            
+            self.isLoaded = true
+            print("DataLoader: Static data load complete! Bins: \(self.bins.count), Countries: \(self.countries.count), Centroids: \(self.centroids.count)")
+        }
+        
+        staticDataTask = task
+        
+        do {
+            try await task.value
         } catch {
+            staticDataTask = nil // Clear failed task
             loadError = error
             print("DataLoader ERROR: \(error)")
             throw error
         }
     }
     
-    /// Load data for a specific year
+    /// Load data for a specific year (bulletproof concurrency protection)
+    @MainActor
     func loadYear(_ year: Int) async throws -> [String: YearData] {
+        // Check cache first (instant return for recent years)
+        if let cachedData = yearDataCache[year] {
+            print("DataLoader: Cache hit for year \(year)")
+            return cachedData
+        }
+        
+        // If already loading this year, wait for existing task
+        if let existingTask = yearLoadTasks[year] {
+            print("DataLoader: Waiting for existing task for year \(year)")
+            return try await existingTask.value
+        }
+        
+        // Create new loading task (single file access point)
+        print("DataLoader: Starting new load for year \(year)")
+        let task = Task<[String: YearData], Error> {
+            return try await self._loadYearData(year)
+        }
+        
+        yearLoadTasks[year] = task
+        
+        do {
+            let result = try await task.value
+            yearDataCache[year] = result // Cache successful result
+            yearLoadTasks.removeValue(forKey: year) // Clean up completed task
+            
+            // Simple cache limit (keep last 5 years on device for memory efficiency)
+            let maxCacheSize = 5 // Reduced for device memory constraints
+            if yearDataCache.count > maxCacheSize {
+                let oldestYear = yearDataCache.keys.min() ?? year
+                yearDataCache.removeValue(forKey: oldestYear)
+                print("DataLoader: Cache evicted year \(oldestYear)")
+            }
+            
+            return result
+        } catch {
+            yearLoadTasks.removeValue(forKey: year) // Clean up failed task
+            throw error
+        }
+    }
+    
+    // Private implementation
+    private func _loadYearData(_ year: Int) async throws -> [String: YearData] {
         let fileName = "year_\(year)"
         
         // Try both with and without DataFiles subdirectory

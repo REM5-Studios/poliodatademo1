@@ -24,7 +24,7 @@ struct ContentView: View {
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
-            .padding(.top, 60)
+            .padding(.top, 30)
             .padding(.bottom, 40)
             
             // Main content
@@ -39,10 +39,6 @@ struct ContentView: View {
                     ToggleImmersiveSpaceButton()
                         .controlSize(.extraLarge)
                         .buttonStyle(.borderedProminent)
-                    
-                    Text("Enter the immersive experience")
-                        .font(.callout)
-                        .foregroundStyle(.tertiary)
                 }
                 .padding(.vertical, 40)
                 .frame(maxHeight: .infinity)
@@ -59,28 +55,38 @@ struct ContentView: View {
                 .padding(.top, 20)
                 .frame(maxHeight: .infinity)
                 
-                // Reset map position button
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        NotificationCenter.default.post(
-                            name: .resetMapPosition,
-                            object: nil
-                        )
-                    }) {
-                        Label("Reset Map Position", systemImage: "arrow.counterclockwise")
-                            .font(.callout)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 20)
-                }
+                // Reset map position button (center) - HIDDEN
+                // HStack {
+                //     Spacer()
+                //     
+                //     Button(action: {
+                //         NotificationCenter.default.post(
+                //             name: .resetMapPosition,
+                //             object: nil
+                //         )
+                //     }) {
+                //         Label("Reset Map Position", systemImage: "arrow.counterclockwise")
+                //             .font(.callout)
+                //     }
+                //     .buttonStyle(.bordered)
+                //     .controlSize(.regular)
+                //     .padding(.bottom, 10)
+                //     
+                //     Spacer()
+                // }
             }
             
             Spacer()
         }
-        .frame(width: 700, height: appModel.immersiveSpaceState == .open ? 600 : 500)
+        .frame(width: 750, height: appModel.immersiveSpaceState == .open ? 600 : 500)
+        .ornament(
+            attachmentAnchor: .scene(.trailing),
+            contentAlignment: .center
+        ) {
+            if appModel.immersiveSpaceState == .open {
+                DataOrnamentsView()
+            }
+        }
     }
 }
 

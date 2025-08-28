@@ -23,11 +23,17 @@ struct MapScene: View {
     // Shared mesh resource for all bars
     @State private var barMesh: MeshResource?
     
+    // Cached materials for each color to avoid recreating
+    @State private var materialCache: [Color: UnlitMaterial] = [:]
+    
     // Interaction states
     @State private var hoveredCountryCode: String?
     @State private var selectedCountryCode: String?
     @State private var currentYearData: [String: YearData] = [:]
     @State private var infoBoxEntity: Entity?
+    
+    // Debouncing for year changes to prevent memory crashes
+    @State private var loadingTask: Task<Void, Never>?
     
     // Map dimensions in meters
     private let mapWidth: Float = 1.2
@@ -84,7 +90,14 @@ struct MapScene: View {
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int {
                 currentYear = year
-                Task {
+                
+                // Cancel previous loading task to prevent memory crashes
+                loadingTask?.cancel()
+                
+                // Create new debounced task
+                loadingTask = Task {
+                    try? await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds (same as ornaments)
+                    guard !Task.isCancelled else { return }
                     await updateBarsForYear(year)
                 }
             }
@@ -92,16 +105,21 @@ struct MapScene: View {
         .onReceive(NotificationCenter.default.publisher(for: .resetMapPosition)) { _ in
             resetMapPosition()
         }
+        .onDisappear {
+            // Cancel any pending loading task to prevent memory leaks
+            loadingTask?.cancel()
+        }
 
         .gesture(
             SpatialTapGesture()
                 .targetedToAnyEntity()
                 .onEnded { value in
-                    // Check if it's a bar by looking at the name
+                    // Only process bar entities - ignore map plane and other entities
                     if value.entity.name.hasPrefix("Bar_") {
                         let countryCode = String(value.entity.name.dropFirst(4))
                         handleBarTap(countryCode: countryCode)
                     }
+                    // All other entities (including map plane) are ignored
                 }
         )
 
@@ -149,8 +167,8 @@ struct MapScene: View {
         // Rotate to lie flat (XZ plane with Y up)
         mapEntity.transform.rotation = simd_quatf(angle: -.pi/2, axis: [1, 0, 0])
         
-        // Generate collision shape for tap detection
-        mapEntity.generateCollisionShapes(recursive: false)
+        // Map collision disabled - only bars need collision for interaction
+        // mapEntity.generateCollisionShapes(recursive: false)
         
         return mapEntity
     }
@@ -231,45 +249,7 @@ struct MapScene: View {
         let centroids = DataLoader.shared.centroids
         _ = DataLoader.shared.bins
         
-        // Debug: Create reference markers at corners AND known countries
-        if false {  // Set to false to disable debug markers
-            // First, let's verify our understanding of the coordinate system
-            print("=== COORDINATE SYSTEM DEBUG ===")
-            print("Map dimensions: width=\(mapWidth), height=\(mapHeight)")
-            print("Plane initially in XY, rotated -90° around X to lie in XZ")
-            print("Expected: (0,0) = top-left, (1,0) = top-right, (0,1) = bottom-left, (1,1) = bottom-right")
-            
-            let debugPositions: [(String, Float, Float, UIColor)] = [
-                ("Corner_TL", 0.0, 0.0, .yellow),    // Top-left
-                ("Corner_TR", 1.0, 0.0, .yellow),    // Top-right
-                ("Corner_BL", 0.0, 1.0, .yellow),    // Bottom-left
-                ("Corner_BR", 1.0, 1.0, .yellow),    // Bottom-right
-                ("Center", 0.5, 0.5, .yellow),       // Center
-                
-                // Add specific country positions
-                ("BRA_manual", 0.362335, 0.567215, .cyan),     // Brazil
-                ("NGA_manual", 0.521, 0.448, .magenta),        // Nigeria (Africa)
-                ("IND_manual", 0.720, 0.374, .orange),         // India (Asia)
-            ]
-            
-            for (name, x_norm, y_norm, color) in debugPositions {
-                // Use same transformation as country bars
-                let localX = (x_norm - 0.5) * mapWidth
-                let localZ = (y_norm - 0.5) * mapHeight  // Changed to match country transformation
-                
-                var material = UnlitMaterial()
-                material.color = .init(tint: color)
-                
-                let debugBar = ModelEntity(mesh: mesh, materials: [material])
-                debugBar.name = "Debug_\(name)"
-                debugBar.position = [localX, 0.01, localZ]
-                debugBar.scale = [2, 20, 2]  // Make them taller and wider
-                
-                barsRoot.addChild(debugBar)
-                
-                print("Debug bar \(name): norm(\(x_norm), \(y_norm)) -> local(\(localX), \(localZ))")
-            }
-        }
+
         
         // Create a bar entity for each country
         print("MapScene: Creating bars for \(centroids.count) centroids")
@@ -342,29 +322,54 @@ struct MapScene: View {
                 barEntity.scale = [2, scaleY, 2]  // X and Z scaled by 2 for 10mm bars
                 barEntity.position.y = 0.01 + (height / 2)
                 
-                // Update collision shape to match bar size
-                let collisionShape = ShapeResource.generateBox(size: [0.01, height, 0.01])
-                barEntity.components.set(CollisionComponent(shapes: [collisionShape], isStatic: true))
+                // Only update collision shape if height changed significantly
+                let currentCollision = barEntity.components[CollisionComponent.self]
+                let needsCollisionUpdate = currentCollision == nil || abs(barEntity.scale.y - scaleY) > 0.1
                 
-                // Update color
-                if var material = barEntity.model?.materials.first as? UnlitMaterial {
-                    material.color = .init(tint: UIColor(color))
-                    barEntity.model?.materials = [material]
+                if needsCollisionUpdate {
+                    // Update collision shape to match bar size exactly
+                    // Visual bar: positioned at center (0.01 + height/2), extends ±height/2
+                    // Collision: needs to be offset down so it aligns with visual bar base
+                    let collisionShape = ShapeResource.generateBox(size: [0.01, height, 0.01])
+                    
+                    // Offset collision box down by half height to align with visual bar
+                    let collisionOffset = SIMD3<Float>(0, -height/2, 0)
+                    barEntity.components.set(CollisionComponent(
+                        shapes: [collisionShape.offsetBy(translation: collisionOffset)], 
+                        isStatic: true
+                    ))
+                }
+                
+                // Update color using cached material
+                if materialCache[color] == nil {
+                    var newMaterial = UnlitMaterial()
+                    newMaterial.color = .init(tint: UIColor(color))
+                    materialCache[color] = newMaterial
+                }
+                
+                if let cachedMaterial = materialCache[color] {
+                    barEntity.model?.materials = [cachedMaterial]
                 }
                 
                 // Make visible
                 barEntity.isEnabled = true
                 
             } else {
-                // No cases - hide bar completely
+                // No cases - hide bar completely and remove collision
                 barEntity.scale = [0, 0, 0]  // Completely hide
                 barEntity.position.y = 0.01
                 barEntity.isEnabled = false
+                
+                // Remove collision component - hidden bars shouldn't block interactions
+                barEntity.components.remove(CollisionComponent.self)
             }
         }
     }
     
     private func updateBarsForYear(_ year: Int) async {
+        // Check if we're still on the requested year (user might have moved on)
+        guard currentYear == year else { return }
+        
         // Hide info box when year changes
         if let infoBox = infoBoxEntity {
             infoBox.removeFromParent()
@@ -388,19 +393,31 @@ struct MapScene: View {
         
         do {
             let yearData = try await DataLoader.shared.loadYear(year)
+            
+            // Double-check we're still on the requested year
+            guard currentYear == year else { return }
+            
             currentYearData = yearData
             
-            // Animate the updates
-            await withTaskGroup(of: Void.self) { group in
-                for (code, barEntity) in barEntities {
-                    group.addTask {
-                        await self.animateBarUpdate(
-                            barEntity: barEntity,
-                            yearData: yearData[code],
-                            duration: 0.5
-                        )
+            // Use simpler, non-animated updates during rapid changes
+            let shouldAnimate = !Task.isCancelled
+            
+            if shouldAnimate {
+                // Animate the updates
+                await withTaskGroup(of: Void.self) { group in
+                    for (code, barEntity) in barEntities {
+                        group.addTask {
+                            await self.animateBarUpdate(
+                                barEntity: barEntity,
+                                yearData: yearData[code],
+                                duration: 0.5
+                            )
+                        }
                     }
                 }
+            } else {
+                // Quick update without animation
+                updateBars(with: yearData)
             }
         } catch {
             loadError = "Could not load year \(year)"
@@ -439,6 +456,9 @@ struct MapScene: View {
             )
             barEntity.move(to: targetTransform, relativeTo: nil, duration: TimeInterval(duration))
             barEntity.isEnabled = false
+            
+            // Remove collision component during animation to reduce physics calculations
+            barEntity.components.remove(CollisionComponent.self)
         } else {
             // Has data - animate to proper height
             let scaleY = targetHeight / 0.005
@@ -453,10 +473,15 @@ struct MapScene: View {
             barEntity.isEnabled = true
         }
         
-        // Update color
-        if var material = barEntity.model?.materials.first as? UnlitMaterial {
-            material.color = .init(tint: UIColor(targetColor))
-            barEntity.model?.materials = [material]
+        // Update color using cached material
+        if materialCache[targetColor] == nil {
+            var newMaterial = UnlitMaterial()
+            newMaterial.color = .init(tint: UIColor(targetColor))
+            materialCache[targetColor] = newMaterial
+        }
+        
+        if let cachedMaterial = materialCache[targetColor] {
+            barEntity.model?.materials = [cachedMaterial]
         }
     }
     
@@ -466,37 +491,37 @@ struct MapScene: View {
         let container = Entity()
         container.name = "InfoBox"
         
-        // Create background panel with rounded corners - bigger size with more padding
+        // Create background panel with minimal rounding to match ornaments
         let panelWidth: Float = 0.20
         let panelHeight: Float = 0.075
-        // Use generatePlane with corner radius for better control
-        print("Creating info box plane with dimensions: \(panelWidth) x \(panelHeight)")
+        let cornerRadius: Float = 0.016  // Reduced from 0.025 to match ornaments
+        
         let panelMesh = MeshResource.generatePlane(
             width: panelWidth, 
             height: panelHeight,
-            cornerRadius: 0.025  // 25mm corner radius
+            cornerRadius: cornerRadius
         )
         
-        // Create glass-like material with darker background to match main window
-        var panelMaterial = SimpleMaterial()
-        panelMaterial.color = .init(tint: UIColor(white: 0.15, alpha: 0.85))
-        panelMaterial.roughness = .init(floatLiteral: 0.3)
-        panelMaterial.metallic = .init(floatLiteral: 0.0)
+        // Use simple dark glass-like material (RealityKit can't use SwiftUI .thickMaterial)
+        var glassMaterial = SimpleMaterial()
+        glassMaterial.color = .init(tint: UIColor.black.withAlphaComponent(0.7))
+        glassMaterial.roughness = .init(floatLiteral: 0.2)
+        glassMaterial.metallic = .init(floatLiteral: 0.0)
         
-        let panel = ModelEntity(mesh: panelMesh, materials: [panelMaterial])
-        // Ensure the panel has input and collision components for stability
+        let panel = ModelEntity(mesh: panelMesh, materials: [glassMaterial])
         panel.components.set(InputTargetComponent(allowedInputTypes: .indirect))
         panel.generateCollisionShapes(recursive: false)
+        
         container.addChild(panel)
         
-        // Add a blue border to match the selected bar
+        // Add thin white semi-transparent outline to match ornament style
         let borderMesh = MeshResource.generatePlane(
             width: panelWidth + 0.002, 
             height: panelHeight + 0.002,
-            cornerRadius: 0.026
+            cornerRadius: cornerRadius + 0.001
         )
         var borderMaterial = UnlitMaterial()
-        borderMaterial.color = .init(tint: UIColor(red: 0, green: 0.5, blue: 1.0, alpha: 0.3))
+        borderMaterial.color = .init(tint: UIColor.white.withAlphaComponent(0.25))
         let border = ModelEntity(mesh: borderMesh, materials: [borderMaterial])
         border.position.z = -0.002
         container.addChild(border)
@@ -640,36 +665,7 @@ struct MapScene: View {
     }
 }
 
-// MARK: - Year Selector UI
 
-struct YearSelector: View {
-    @Binding var currentYear: Int
-    let onYearChanged: (Int) -> Void
-    
-    private let years = [2000, 2001, 2002]
-    
-    var body: some View {
-        HStack(spacing: 20) {
-            ForEach(years, id: \.self) { year in
-                Button(action: {
-                    currentYear = year
-                    onYearChanged(year)
-                }) {
-                    Text("\(year)")
-                        .font(.title2)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(currentYear == year ? Color.blue : Color.gray.opacity(0.3))
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
-            }
-        }
-        .padding()
-        .background(.regularMaterial)
-        .cornerRadius(15)
-    }
-}
 
 // MARK: - Array Extension
 
