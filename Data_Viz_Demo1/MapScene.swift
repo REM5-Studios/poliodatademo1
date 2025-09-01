@@ -183,29 +183,32 @@ struct MapScene: View {
             let map3D = try await Entity(named: "WorldMap3D", in: realityKitContentBundle)
             map3D.name = "Map3D"
             
-            // Scale to match the 2D map dimensions (adjust these values as needed)
-            // The 2D map is 1.2m × 0.6m
-            let targetWidth: Float = mapWidth  // 1.2 meters
+            // Simple scaling - 10% bigger (0.2112 instead of 0.192)
+            map3D.scale = [0.2112, 0.2112, 0.2112]
             
-            // Get the model's bounding box to calculate proper scaling
-            let bounds = map3D.visualBounds(relativeTo: nil)
-            let modelWidth = bounds.max.x - bounds.min.x
-            let scaleFactor = targetWidth / modelWidth
-            map3D.scale = [scaleFactor, scaleFactor, scaleFactor]
+            // No rotation - keep it in default orientation
+            // map3D.transform.rotation = simd_quatf(angle: -.pi/2, axis: [1, 0, 0])
             
-            // Rotate to lie flat (same as 2D map - rotate 90 degrees around X axis)
-            map3D.transform.rotation = simd_quatf(angle: -.pi/2, axis: [1, 0, 0])
-            
-            // Position with manual offset to align with 2D map
-            // X: 3.7cm right, Y: 0.5cm up, Z: 1.8cm forward/down
-            map3D.position = [0.037, 0.005, -0.018]
+            // Position to align with the 2D map (moved up by 0.03)
+            map3D.position = [0, 0, 0]  // Was -0.03, now 0
             
             // Optional: Add a slight transparency to see both maps
             // map3D.opacity = 0.8
             
+            // Make sure the 3D map doesn't block interactions with bars
+            // Remove any collision components that might interfere
+            map3D.components.remove(CollisionComponent.self)
+            map3D.components.remove(InputTargetComponent.self)
+            
+            // Recursively remove collision/input from all children
+            map3D.children.forEach { child in
+                child.components.remove(CollisionComponent.self)
+                child.components.remove(InputTargetComponent.self)
+            }
+            
             return map3D
         } catch {
-            print("Failed to load 3D map: \(error)")
+            print("MapScene: Failed to load 3D map: \(error)")
             return nil
         }
     }

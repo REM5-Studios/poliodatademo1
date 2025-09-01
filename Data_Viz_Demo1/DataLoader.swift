@@ -111,7 +111,6 @@ final class DataLoader {
         
         // If already loading this year, wait for existing task
         if let existingTask = yearLoadTasks[year] {
-            print("DataLoader: Waiting for existing task for year \(year)")
             return try await existingTask.value
         }
         
