@@ -15,24 +15,22 @@ struct ControlPanel: View {
     @State private var sliderValue: Double = 1980
     
     var body: some View {
-        VStack(spacing: 5) { // Further reduced for tighter feel
+        VStack(spacing: 2) { // Very tight spacing for compact 3D use
                 Text("Year")
-                    .font(.system(size: 28, weight: .medium, design: .rounded))
+                    .font(.system(size: 20, weight: .medium, design: .rounded))
                     .foregroundStyle(.primary)
-                    .padding(.top, 30) // Slightly increased top padding
+                    .padding(.top, 15) // Reduced top padding
                 
-                // Large year display with smooth animation
+                // Smaller year display but still prominent
                 Text(String(currentYear))
-                    .font(.system(size: 80, weight: .bold, design: .rounded))
+                    .font(.system(size: 50, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
                     .contentTransition(.numericText())
                     .animation(.smooth(duration: 0.2), value: currentYear)
-                    .padding(.bottom, 5) // Add small bottom padding to year
-                
-                // Remove spacer and let VStack handle spacing naturally
+                    .padding(.bottom, 2) // Minimal bottom padding
                 
                 // Custom glass sphere slider with tick marks
-                VStack(spacing: 12) { // Reduced slider section spacing
+                VStack(spacing: 6) { // Minimal slider section spacing
                     SimplifiedSphereSlider(
                         value: $sliderValue,
                         range: 1980...2023,
@@ -45,26 +43,26 @@ struct ControlPanel: View {
                             }
                         }
                     )
-                    .frame(width: 600, height: 40)
-                    .padding(.top, 10) // Add small top padding to slider
+                    .frame(width: 500, height: 35) // Slightly smaller slider
+                    .padding(.top, 5) // Minimal top padding
                     
-                    // Year labels below slider
+                    // Smaller year labels below slider
                     HStack {
                         Text("1980")
-                            .font(.title2)
+                            .font(.callout)
                             .fontWeight(.medium)
                             .foregroundStyle(.secondary)
                         Spacer()
                         Text("2023")
-                            .font(.title2)
+                            .font(.callout)
                             .fontWeight(.medium)
                             .foregroundStyle(.secondary)
                     }
-                    .frame(width: 600)
+                    .frame(width: 500)
                 }
-                .padding(.bottom, 35) // Increased bottom padding for better balance
+                .padding(.bottom, 15) // Minimal bottom padding
         }
-        .frame(width: 750, height: 440)
+        .frame(width: 600, height: 220) // Compact: 600×220 (was 750×440)
         .onAppear {
             sliderValue = Double(currentYear)
         }

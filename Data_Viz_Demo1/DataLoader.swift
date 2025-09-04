@@ -35,6 +35,22 @@ struct Centroid {
     let normalizedPosition: SIMD2<Float> // x_norm, y_norm for equirectangular
 }
 
+struct GlobalTotals: Identifiable {
+    let id: Int // Use year as the unique identifier
+    let year: Int
+    let estimatedCases: Double
+    let immunizationRate: Double
+    let funding: Double? // Optional since some years don't have funding data
+    
+    init(year: Int, estimatedCases: Double, immunizationRate: Double, funding: Double?) {
+        self.id = year
+        self.year = year
+        self.estimatedCases = estimatedCases
+        self.immunizationRate = immunizationRate
+        self.funding = funding
+    }
+}
+
 // MARK: - DataLoader
 
 @Observable
@@ -47,6 +63,7 @@ final class DataLoader {
     private(set) var centroids: [String: SIMD2<Float>] = [:]
     private(set) var currentYearData: [String: YearData] = [:]
     private var caseCounts: [String: [String: Int]] = [:] // year -> country -> cases
+    private(set) var globalTotals: [GlobalTotals] = [] // Global totals data for charts
     
     // Loading state
     private(set) var isLoaded = false
@@ -80,6 +97,7 @@ final class DataLoader {
                 group.addTask { try await self.loadCountries() }
                 group.addTask { try await self.loadCentroids() }
                 group.addTask { try await self.loadCaseCounts() }
+                group.addTask { try await self.loadGlobalTotals() }
                 
                 try await group.waitForAll()
             }
@@ -320,6 +338,46 @@ final class DataLoader {
         
         let totalCases = caseCounts.values.flatMap { $0.values }.reduce(0, +)
         print("DataLoader: Loaded case counts - \(caseCounts.count) years, \(totalCases) total cases")
+    }
+    
+    private func loadGlobalTotals() async throws {
+        // Try to find the global totals CSV file
+        var url = Bundle.main.url(forResource: "Global_Polio_Totals_Simplified__1980_2023_", withExtension: "csv", subdirectory: "WorkingFiles/RawData")
+        if url == nil {
+            url = Bundle.main.url(forResource: "Global_Polio_Totals_Simplified__1980_2023_", withExtension: "csv")
+        }
+        guard let url = url else {
+            throw DataLoaderError.fileNotFound("Global_Polio_Totals_Simplified__1980_2023_.csv")
+        }
+        
+        let content = try String(contentsOf: url, encoding: .utf8)
+        let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        
+        // Skip header line
+        var totals: [GlobalTotals] = []
+        for line in lines.dropFirst() {
+            let columns = line.components(separatedBy: ",")
+            
+            guard columns.count >= 4 else { continue }
+            
+            // Parse the data: ,Year,estimated_paralytic_cases,immunization_rate_pct,funding_total_usd_constant_2021
+            guard let year = Int(columns[1]),
+                  let cases = Double(columns[2]),
+                  let immunizationRate = Double(columns[3]) else { continue }
+            
+            // Funding is optional (empty for some years)
+            let funding = columns.count > 4 && !columns[4].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Double(columns[4]) : nil
+            
+            totals.append(GlobalTotals(
+                year: year,
+                estimatedCases: cases,
+                immunizationRate: immunizationRate,
+                funding: funding
+            ))
+        }
+        
+        self.globalTotals = totals
+        print("DataLoader: Loaded global totals for \(totals.count) years")
     }
 }
 

@@ -50,9 +50,9 @@ struct MapScene: View {
 
     
     var body: some View {
-        RealityView { content in
+        RealityView { content, attachments in
             // Create world anchor at table height, closer to window
-            let anchor = AnchorEntity(world: [0, 0.85, -1.2])
+            let anchor = AnchorEntity(world: [0, 0.9, -1.5])
             content.add(anchor)
             worldAnchor = anchor
             
@@ -65,27 +65,54 @@ struct MapScene: View {
 
 
             
-            // Create map plane
-            if let mapEntity = await createMapPlane() {
-                rig.addChild(mapEntity)
-                
-                // Add 3D map
-                if let map3D = await create3DMap() {
-                    rig.addChild(map3D)
-                    map3DEntity = map3D
-                }
-                
-                // Create bars root entity
-                let barsContainer = Entity()
-                barsContainer.name = "BarsRoot"
-                rig.addChild(barsContainer)
-                barsRoot = barsContainer
-                
-                // Load data and create bars
-                await loadDataAndCreateBars()
+            // Create map plane - COMMENTED OUT TO HIDE 2D MAP
+            // if let mapEntity = await createMapPlane() {
+            //     rig.addChild(mapEntity)
+            // }
+            
+            // Add 3D map
+            if let map3D = await create3DMap() {
+                rig.addChild(map3D)
+                map3DEntity = map3D
             }
             
+            // Add directional light for 3D map
+            let directionalLight = DirectionalLight()
+            directionalLight.light.intensity = 10000  // Cranked up brightness
+            directionalLight.look(at: [0, 0, 0], from: [1, 1, 1], relativeTo: nil)
+            rig.addChild(directionalLight)
+            
+            // Create bars root entity
+            let barsContainer = Entity()
+            barsContainer.name = "BarsRoot"
+            rig.addChild(barsContainer)
+            barsRoot = barsContainer
+            
+            // Add timeline menu attachment in 3D space
+            if let timelineAttachment = attachments.entity(for: "timeline") {
+                timelineAttachment.position = [0, -0.05, 0.26]  // User requested position
+                anchor.addChild(timelineAttachment)
+            }
+            
+            // Load data and create bars
+            await loadDataAndCreateBars()
+            
 
+        } attachments: {
+            Attachment(id: "timeline") {
+                ControlPanel(currentYear: $currentYear) { year in
+                    NotificationCenter.default.post(
+                        name: .yearChanged,
+                        object: nil,
+                        userInfo: ["year": year]
+                    )
+                }
+                .scaleEffect(0.8)  // Good size for 3D space
+                .padding(20)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
+                .allowsHitTesting(true)  // Ensure touch input works in 3D
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int {
