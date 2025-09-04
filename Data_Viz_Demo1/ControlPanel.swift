@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import RealityKit
+import RealityKitContent
 
 struct ControlPanel: View {
     @Binding var currentYear: Int
@@ -27,7 +29,7 @@ struct ControlPanel: View {
                     .foregroundStyle(.primary)
                     .contentTransition(.numericText())
                     .animation(.smooth(duration: 0.2), value: currentYear)
-                    .padding(.bottom, 2) // Minimal bottom padding
+                    .padding(.bottom, 8) // Increased gap below year
                 
                 // Custom glass sphere slider with tick marks
                 VStack(spacing: 6) { // Minimal slider section spacing
@@ -44,7 +46,7 @@ struct ControlPanel: View {
                         }
                     )
                     .frame(width: 500, height: 35) // Slightly smaller slider
-                    .padding(.top, 5) // Minimal top padding
+                    .padding(.top, 12) // Increased gap above slider
                     
                     // Smaller year labels below slider
                     HStack {
@@ -84,6 +86,26 @@ struct SimplifiedSphereSlider: View {
         (value - range.lowerBound) / (range.upperBound - range.lowerBound)
     }
     
+    @ViewBuilder
+    private var sphereHandle: some View {
+        Model3D(named: "Sphere", bundle: realityKitContentBundle) { model in
+            model
+                .resizable()
+                .frame(width: 39, height: 39) // 30% bigger (30 * 1.3 = 39)
+                .scaleEffect(sphereScale)
+        } placeholder: {
+            // Fallback to 2D circle if 3D model fails to load
+            Circle()
+                .frame(width: 39, height: 39) // 30% bigger
+                .background(.thickMaterial, in: Circle())
+                .glassBackgroundEffect(in: Circle())
+                .scaleEffect(sphereScale)
+        }
+        .offset(y: -3) // Move closer to slider
+        .offset(z: 15) // Move away from user (was 30, now 15)
+        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+    }
+    
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
@@ -105,23 +127,17 @@ struct SimplifiedSphereSlider: View {
                         }
                     }
                 }
-                .frame(width: geometry.size.width - 30) // Account for sphere width
-                .offset(x: 15) // Center ticks on track
+                .frame(width: geometry.size.width - 39) // Account for larger sphere width
+                .offset(x: 19.5) // Center ticks on track (39/2 = 19.5)
                 
                 // Progress fill
                 RoundedRectangle(cornerRadius: 4)
                     .fill(.blue.gradient)
                     .frame(width: geometry.size.width * normalizedValue, height: 8)
                 
-                // Simplified visionOS Glass Circle
-                Circle()
-                    .frame(width: 30, height: 30)
-                    .background(.thickMaterial, in: Circle())
-                    .glassBackgroundEffect(in: Circle())
-                    .offset(z: 30)
-                    .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
-                    .scaleEffect(sphereScale)
-                    .offset(x: (geometry.size.width - 30) * normalizedValue)
+                // 3D Glass Sphere Handle
+                sphereHandle
+                    .offset(x: (geometry.size.width - 39) * normalizedValue)
                     .offset(y: isDragging ? -5 : 0) // Lift effect when dragging
                     .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.6), value: sphereScale)
                     .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.7), value: isDragging)

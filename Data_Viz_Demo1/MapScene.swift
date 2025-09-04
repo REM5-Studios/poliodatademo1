@@ -35,6 +35,10 @@ struct MapScene: View {
     // Debouncing for year changes to prevent memory crashes
     @State private var loadingTask: Task<Void, Never>?
     
+    // Rate-limited real-time updates
+    @State private var lastUpdateTime = Date()
+    @State private var isRateLimited = false
+    
     // Map dimensions in meters
     private let mapWidth: Float = 1.2
     private let mapHeight: Float = 0.6
@@ -52,7 +56,7 @@ struct MapScene: View {
     var body: some View {
         RealityView { content, attachments in
             // Create world anchor at table height, closer to window
-            let anchor = AnchorEntity(world: [0, 0.9, -1.5])
+            let anchor = AnchorEntity(world: [0, 0.9, -1.2])
             content.add(anchor)
             worldAnchor = anchor
             
@@ -90,7 +94,7 @@ struct MapScene: View {
             
             // Add timeline menu attachment in 3D space
             if let timelineAttachment = attachments.entity(for: "timeline") {
-                timelineAttachment.position = [0, -0.05, 0.26]  // User requested position
+                timelineAttachment.position = [0, -0.05, 0.3]  // Moved closer to match map at -1.2
                 anchor.addChild(timelineAttachment)
             }
             
@@ -118,14 +122,34 @@ struct MapScene: View {
             if let year = notification.userInfo?["year"] as? Int {
                 currentYear = year
                 
-                // Cancel previous loading task to prevent memory crashes
-                loadingTask?.cancel()
+                let now = Date()
+                let timeSinceLastUpdate = now.timeIntervalSince(lastUpdateTime)
                 
-                // Create new debounced task
-                loadingTask = Task {
-                    try? await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds (same as ornaments)
-                    guard !Task.isCancelled else { return }
-                    await updateBarsForYear(year)
+                // Rate limit: minimum 100ms between updates
+                if timeSinceLastUpdate >= 0.1 && !isRateLimited {
+                    // Immediate update with fast animation
+                    lastUpdateTime = now
+                    isRateLimited = true
+                    
+                    // Cancel any pending slow updates
+                    loadingTask?.cancel()
+                    
+                    // Fast real-time update
+                    Task {
+                        await updateBarsForYear(year, fastMode: true)
+                        
+                        // Reset rate limiting after update completes
+                        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+                        isRateLimited = false
+                    }
+                } else {
+                    // Too fast - use debounced update
+                    loadingTask?.cancel()
+                    loadingTask = Task {
+                        try? await Task.sleep(nanoseconds: 150_000_000) // 150ms debounce
+                        guard !Task.isCancelled else { return }
+                        await updateBarsForYear(year, fastMode: false)
+                    }
                 }
             }
         }
@@ -154,6 +178,7 @@ struct MapScene: View {
 
 
     }
+    
     
     // MARK: - Map Positioning
     
@@ -352,23 +377,16 @@ struct MapScene: View {
                 barEntity.scale = [2, scaleY, 2]  // X and Z scaled by 2 for 10mm bars
                 barEntity.position.y = 0.01 + (height / 2)
                 
-                // Only update collision shape if height changed significantly
-                let currentCollision = barEntity.components[CollisionComponent.self]
-                let needsCollisionUpdate = currentCollision == nil || abs(barEntity.scale.y - scaleY) > 0.1
+                // Update collision shape to match visual bar exactly when stopped
+                let collisionWidth: Float = 0.01  // Same as visual bar (1cm)
+                let collisionShape = ShapeResource.generateBox(size: [collisionWidth, height, collisionWidth])
                 
-                if needsCollisionUpdate {
-                    // Update collision shape to match bar size exactly
-                    // Visual bar: positioned at center (0.01 + height/2), extends ±height/2
-                    // Collision: needs to be offset down so it aligns with visual bar base
-                    let collisionShape = ShapeResource.generateBox(size: [0.01, height, 0.01])
-                    
-                    // Offset collision box down by half height to align with visual bar
-                    let collisionOffset = SIMD3<Float>(0, -height/2, 0)
-                    barEntity.components.set(CollisionComponent(
-                        shapes: [collisionShape.offsetBy(translation: collisionOffset)], 
-                        isStatic: true
-                    ))
-                }
+                // Offset collision box down by half height to align with visual bar base
+                let collisionOffset = SIMD3<Float>(0, -height/2, 0)
+                barEntity.components.set(CollisionComponent(
+                    shapes: [collisionShape.offsetBy(translation: collisionOffset)], 
+                    isStatic: true
+                ))
                 
                 // Update color using cached material
                 if materialCache[color] == nil {
@@ -396,7 +414,7 @@ struct MapScene: View {
         }
     }
     
-    private func updateBarsForYear(_ year: Int) async {
+    private func updateBarsForYear(_ year: Int, fastMode: Bool = false) async {
         // Check if we're still on the requested year (user might have moved on)
         guard currentYear == year else { return }
         
@@ -433,15 +451,38 @@ struct MapScene: View {
             let shouldAnimate = !Task.isCancelled
             
             if shouldAnimate {
-                // Animate the updates
-                await withTaskGroup(of: Void.self) { group in
-                    for (code, barEntity) in barEntities {
-                        group.addTask {
-                            await self.animateBarUpdate(
-                                barEntity: barEntity,
-                                yearData: yearData[code],
-                                duration: 0.5
-                            )
+                if fastMode {
+                    // Fast mode: Quick animation without wave, shorter duration
+                    await withTaskGroup(of: Void.self) { group in
+                        for (code, barEntity) in barEntities {
+                            group.addTask {
+                                await self.animateBarUpdate(
+                                    barEntity: barEntity,
+                                    yearData: yearData[code],
+                                    duration: 0.2  // Fast 200ms animation
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Normal mode: Beautiful geographic wave animation
+                    await withTaskGroup(of: Void.self) { group in
+                        for (code, barEntity) in barEntities {
+                            group.addTask {
+                                // Get longitude for wave delay (0.0 = West, 1.0 = East)
+                                let longitude = DataLoader.shared.centroids[code]?.x ?? 0.5
+                                let waveDelay = longitude * 0.2  // 0-200ms stagger
+                                
+                                // Small delay before animation
+                                try? await Task.sleep(nanoseconds: UInt64(waveDelay * 1_000_000_000))
+                                guard !Task.isCancelled else { return }
+                                
+                                await self.animateBarUpdate(
+                                    barEntity: barEntity,
+                                    yearData: yearData[code],
+                                    duration: 0.5  // Normal 500ms animation
+                                )
+                            }
                         }
                     }
                 }
@@ -484,7 +525,7 @@ struct MapScene: View {
                 rotation: simd_quatf(angle: 0, axis: [0, 1, 0]),
                 translation: [currentX, 0.01, currentZ]
             )
-            barEntity.move(to: targetTransform, relativeTo: nil, duration: TimeInterval(duration))
+            barEntity.move(to: targetTransform, relativeTo: barEntity.parent, duration: TimeInterval(duration))
             barEntity.isEnabled = false
             
             // Remove collision component during animation to reduce physics calculations
@@ -499,7 +540,7 @@ struct MapScene: View {
                 rotation: simd_quatf(angle: 0, axis: [0, 1, 0]),
                 translation: [currentX, targetY, currentZ]
             )
-            barEntity.move(to: targetTransform, relativeTo: nil, duration: TimeInterval(duration))
+            barEntity.move(to: targetTransform, relativeTo: barEntity.parent, duration: TimeInterval(duration))
             barEntity.isEnabled = true
         }
         
@@ -512,6 +553,23 @@ struct MapScene: View {
         
         if let cachedMaterial = materialCache[targetColor] {
             barEntity.model?.materials = [cachedMaterial]
+        }
+        
+        // Update collision shape after animation completes to match visual bar exactly
+        if yearData != nil && yearData?.bin != 0 {
+            // Wait for animation to complete, then update collision
+            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+            
+            // Set collision to match final visual bar size
+            let collisionWidth: Float = 0.01  // Same as visual bar (1cm)
+            let collisionShape = ShapeResource.generateBox(size: [collisionWidth, targetHeight, collisionWidth])
+            
+            // Offset collision box down by half height to align with visual bar base
+            let collisionOffset = SIMD3<Float>(0, -targetHeight/2, 0)
+            barEntity.components.set(CollisionComponent(
+                shapes: [collisionShape.offsetBy(translation: collisionOffset)], 
+                isStatic: true
+            ))
         }
     }
     
