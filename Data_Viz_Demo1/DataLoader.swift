@@ -51,6 +51,15 @@ struct GlobalTotals: Identifiable {
     }
 }
 
+struct RegionalData: Identifiable {
+    let id: String
+    let entity: String
+    let code: String
+    let year: Int
+    let cases: Double
+    let immunizationRate: Double
+}
+
 // MARK: - DataLoader
 
 @Observable
@@ -64,6 +73,7 @@ final class DataLoader {
     private(set) var currentYearData: [String: YearData] = [:]
     private var caseCounts: [String: [String: Int]] = [:] // year -> country -> cases
     private(set) var globalTotals: [GlobalTotals] = [] // Global totals data for charts
+    private(set) var regionalData: [RegionalData] = [] // Regional data for filtered charts
     
     // Loading state
     private(set) var isLoaded = false
@@ -98,6 +108,7 @@ final class DataLoader {
                 group.addTask { try await self.loadCentroids() }
                 group.addTask { try await self.loadCaseCounts() }
                 group.addTask { try await self.loadGlobalTotals() }
+                group.addTask { try await self.loadRegionalData() }
                 
                 try await group.waitForAll()
             }
@@ -378,6 +389,146 @@ final class DataLoader {
         
         self.globalTotals = totals
         print("DataLoader: Loaded global totals for \(totals.count) years")
+    }
+    
+    private func loadRegionalData() async throws {
+        // Try to find the regional data CSV file
+        var url = Bundle.main.url(forResource: "regional_polio_data", withExtension: "csv", subdirectory: "DataFiles")
+        print("DataLoader: Checking for regional_polio_data.csv in DataFiles: \(url != nil)")
+        if url == nil {
+            url = Bundle.main.url(forResource: "regional_polio_data", withExtension: "csv")
+            print("DataLoader: Checking for regional_polio_data.csv in root: \(url != nil)")
+        }
+        
+        // If not in bundle, try to load from the raw data file we have
+        if url == nil {
+            // Use the raw data file directly
+            let rawDataURL = Bundle.main.url(forResource: "number-of-estimated-paralytic-polio-cases-by-world-region", withExtension: "csv", subdirectory: "WorkingFiles/RawData")
+            print("DataLoader: Checking for raw data file: \(rawDataURL != nil)")
+            if let rawDataURL = rawDataURL {
+                print("DataLoader: Using raw regional data file")
+                try await loadRegionalFromRawData(rawDataURL)
+                print("DataLoader: Loaded \(regionalData.count) regional data entries")
+                return
+            }
+        }
+        
+        guard let url = url else {
+            print("DataLoader: Warning - regional_polio_data.csv not found, using global totals only")
+            return
+        }
+        
+        let content = try String(contentsOf: url, encoding: .utf8)
+        let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        
+        print("DataLoader: Regional data file has \(lines.count) lines")
+        if lines.count > 0 {
+            print("DataLoader: Header line: \(lines[0])")
+        }
+        
+        // Skip header line
+        var regional: [RegionalData] = []
+        for (index, line) in lines.dropFirst().enumerated() {
+            let columns = line.components(separatedBy: ",")
+            
+            if index < 3 {
+                print("DataLoader: Line \(index): \(line)")
+                print("DataLoader: Columns count: \(columns.count)")
+            }
+            
+            guard columns.count >= 5 else { 
+                if index < 3 {
+                    print("DataLoader: Skipping line \(index) - not enough columns")
+                }
+                continue 
+            }
+            
+            // Parse the data: Year,cases,Entity,Code,immunization_rate_pct
+            guard let year = Int(columns[0]),
+                  let cases = Double(columns[1]) else { 
+                if index < 3 {
+                    print("DataLoader: Skipping line \(index) - cannot parse year/cases")
+                }
+                continue 
+            }
+            let entity = columns[2]
+            let code = columns[3]
+            
+            // Immunization rate is in column 4
+            let immunizationRate = Double(columns[4]) ?? 0
+            
+            regional.append(RegionalData(
+                id: "\(code)-\(year)",
+                entity: entity,
+                code: code,
+                year: year,
+                cases: cases,
+                immunizationRate: immunizationRate
+            ))
+        }
+        
+        self.regionalData = regional
+        print("DataLoader: Loaded regional data with \(regional.count) entries")
+    }
+    
+    // Helper method to get data for a specific region
+    func getRegionalData(for region: String) -> [GlobalTotals] {
+        let regionCode = region == "World" ? "WORLD" : region.uppercased().replacingOccurrences(of: " ", with: "_")
+        print("DataLoader: Looking for region code: \(regionCode)")
+        let filtered = regionalData.filter { $0.code == regionCode }
+        print("DataLoader: Found \(filtered.count) entries for \(region)")
+        
+        // Convert to GlobalTotals format for chart compatibility
+        return filtered.map { data in
+            GlobalTotals(
+                year: data.year,
+                estimatedCases: data.cases,
+                immunizationRate: data.immunizationRate,
+                funding: nil
+            )
+        }.sorted { $0.year < $1.year }
+    }
+    
+    private func loadRegionalFromRawData(_ url: URL) async throws {
+        let content = try String(contentsOf: url, encoding: .utf8)
+        let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        
+        var regional: [RegionalData] = []
+        
+        // Process all regional entries (those without country codes, including World)
+        for line in lines.dropFirst() {
+            let columns = line.components(separatedBy: ",")
+            guard columns.count >= 4 else { continue }
+            
+            let entity = columns[0]
+            let code = columns[1]
+            guard let year = Int(columns[2]),
+                  let cases = Double(columns[3]) else { continue }
+            
+            // Only process regional aggregates (no country code) including World
+            if code.isEmpty {
+                let regionCode = entity == "World" ? "WORLD" : entity.uppercased().replacingOccurrences(of: " ", with: "_")
+                
+                // Get immunization rate from global totals
+                let immunizationRate = globalTotals.first { $0.year == year }?.immunizationRate ?? 0
+                
+                regional.append(RegionalData(
+                    id: "\(regionCode)-\(year)",
+                    entity: entity,
+                    code: regionCode,
+                    year: year,
+                    cases: cases,
+                    immunizationRate: immunizationRate
+                ))
+            }
+        }
+        
+        self.regionalData = regional
+        print("DataLoader: Loaded regional data from raw file with \(regional.count) entries")
+        
+        // Debug: print unique regions found
+        let uniqueRegions = Set(regional.map { $0.entity })
+        print("DataLoader: Found regions: \(uniqueRegions.sorted())")
     }
 }
 

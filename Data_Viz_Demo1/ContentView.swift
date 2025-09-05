@@ -16,17 +16,17 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header section
-            VStack(spacing: 12) {
-                Text("Polio Data Visualization")
-                    .font(.system(size: 42, weight: .semibold, design: .rounded))
+            VStack(spacing: 8) {
+                Text("Global Polio Data")
+                    .font(.system(size: 36, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
                 
-                Text("Explore global polio cases from 1980 to 2023")
+                Text("1980-2023")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
-            .padding(.top, 30)
-            .padding(.bottom, 40)
+            .padding(.top, 20)
+            .padding(.bottom, 20)
             
             // Main content
             if appModel.immersiveSpaceState == .closed {
@@ -53,7 +53,7 @@ struct ContentView: View {
                         currentYear: $currentYear,
                         globalTotals: DataLoader.shared.globalTotals
                     )
-                    .frame(width: 750 * 1.1, height: 350) // Much wider chart area
+                    .frame(width: 1050, height: 400) // Increased to accommodate region selector
                     
                     Spacer()
                 }
@@ -82,7 +82,7 @@ struct ContentView: View {
             
             Spacer()
         }
-        .frame(width: 750, height: appModel.immersiveSpaceState == .open ? 600 : 500)
+        .frame(width: appModel.immersiveSpaceState == .open ? 1150 : 750, height: appModel.immersiveSpaceState == .open ? 650 : 500)
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int {
                 currentYear = year
@@ -104,27 +104,104 @@ struct ContentView: View {
 struct GlobalTotalsChart: View {
     @Binding var currentYear: Int
     let globalTotals: [GlobalTotals]
+    @State private var selectedRegion = "World"
+    
+    let regions = ["World", "Africa", "Asia", "Europe", "North America", "Oceania", "South America"]
+    
+    // Get the appropriate data based on selected region
+    private var displayData: [GlobalTotals] {
+        if selectedRegion == "World" {
+            return globalTotals
+        } else {
+            return DataLoader.shared.getRegionalData(for: selectedRegion)
+        }
+    }
+    
+    // Calculate maximum cases for dynamic Y-axis scaling
+    private var maxCases: Double {
+        let maxValue = displayData.map { $0.estimatedCases }.max() ?? 500000
+        // Round up to nearest nice number for axis
+        if maxValue < 1000 {
+            return ceil(maxValue / 100) * 100
+        } else if maxValue < 10000 {
+            return ceil(maxValue / 1000) * 1000
+        } else if maxValue < 100000 {
+            return ceil(maxValue / 10000) * 10000
+        } else {
+            return ceil(maxValue / 100000) * 100000
+        }
+    }
     
     // Get current year data for display
     private var currentYearData: GlobalTotals? {
-        globalTotals.first { $0.year == currentYear }
+        displayData.first { $0.year == currentYear }
     }
     
     var body: some View {
-        VStack(spacing: 12) {
-            Text("Global Polio Cases & Immunization (1980-2023)")
-                .font(.headline)
-                .foregroundStyle(.primary)
+        HStack(spacing: 20) {
+            // Region selector on the left
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Select Region")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(regions, id: \.self) { region in
+                        Button(action: {
+                            selectedRegion = region
+                        }) {
+                            HStack {
+                                Image(systemName: selectedRegion == region ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(selectedRegion == region ? .blue : .secondary)
+                                    .font(.system(size: 16))
+                                
+                                Text(region)
+                                    .font(.subheadline)
+                                    .foregroundStyle(selectedRegion == region ? .primary : .secondary)
+                                
+                                Spacer()
+                            }
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 8)
+                            .background(selectedRegion == region ? Color.blue.opacity(0.1) : Color.clear)
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                
+                Spacer()
+            }
+            .frame(width: 150)
+            .padding()
+            .background(.regularMaterial.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
             
-            // Two separate charts side by side - wider spacing
-            HStack(spacing: 40) {
-                // Cases chart (left)
+            // Charts on the right
+            VStack(spacing: 16) {
                 VStack(spacing: 8) {
-                    Text("Polio Cases")
-                        .font(.subheadline)
-                        .foregroundStyle(.red)
+                    Text("Cases vs. Immunization Rate")
+                        .font(.title3)
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity)
                     
-                    Chart(globalTotals) { data in
+                    Text(selectedRegion)
+                        .font(.headline)
+                        .foregroundStyle(.blue)
+                        .frame(maxWidth: .infinity)
+                }
+                
+                // Stacked charts with shared X-axis
+                VStack(spacing: 0) {
+                // Polio Cases Chart (top)
+                VStack(spacing: 4) {
+                    HStack {
+                        Text("Cases")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                        Spacer()
+                    }
+                    
+                    Chart(displayData) { data in
                         LineMark(
                             x: .value("Year", data.year),
                             y: .value("Cases", data.estimatedCases)
@@ -136,54 +213,43 @@ struct GlobalTotalsChart: View {
                             RuleMark(x: .value("Current Year", data.year))
                                 .foregroundStyle(.white.opacity(0.7))
                                 .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
-                        }
-                        
-                        // Add point annotation for current year
-                        if data.year == currentYear {
+                            
                             PointMark(
                                 x: .value("Year", data.year),
                                 y: .value("Cases", data.estimatedCases)
                             )
                             .foregroundStyle(.red)
-                            .symbolSize(60)
-                            .annotation(position: .trailing) {
+                            .symbolSize(80)
+                            .annotation(position: .topTrailing) {
                                 Text("\(Int(data.estimatedCases).formatted(.number.notation(.compactName)))")
-                                    .font(.caption)
+                                    .font(.system(size: 15)) // Increased from ~12 to 15 (25% increase)
                                     .foregroundStyle(.red)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
                                     .background(.red.opacity(0.2))
                                     .cornerRadius(4)
+                                    .offset(x: 10, y: -5) // Move right and up
                             }
                         }
                     }
-                    .chartYScale(domain: 0...400000)
+                    .chartYScale(domain: 0...maxCases)
                     .chartXScale(domain: 1980...2023)
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: 10)) { value in
-                            AxisGridLine()
-                            AxisTick()
-                            AxisValueLabel {
-                                if let year = value.as(Int.self) {
-                                    Text("\(year)")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
                     .chartYAxis {
-                        AxisMarks { value in
+                        AxisMarks(position: .leading) { value in
                             AxisGridLine()
                             AxisTick()
                             AxisValueLabel {
                                 if let cases = value.as(Double.self) {
-                                    if cases >= 1000 {
-                                        Text("\(Int(cases/1000))K")
+                                    if cases == 0 {
+                                        Text("0")
+                                            .font(.caption2)
+                                            .foregroundStyle(.red)
+                                    } else if cases < 1000 {
+                                        Text("\(Int(cases))")
                                             .font(.caption2)
                                             .foregroundStyle(.red)
                                     } else {
-                                        Text("\(Int(cases))")
+                                        Text("\(Int(cases/1000))K")
                                             .font(.caption2)
                                             .foregroundStyle(.red)
                                     }
@@ -191,17 +257,26 @@ struct GlobalTotalsChart: View {
                             }
                         }
                     }
-                    .frame(height: 220)
+                    .chartXAxis(.hidden) // Hide X-axis for top chart
+                    .frame(height: 140)
                 }
-                .frame(maxWidth: .infinity) // Take up more space
                 
-                // Immunization chart (right)
-                VStack(spacing: 8) {
-                    Text("Immunization Rate")
-                        .font(.subheadline)
-                        .foregroundStyle(.blue)
+                // Visual separator
+                Rectangle()
+                    .fill(.white.opacity(0.2))
+                    .frame(height: 1)
+                    .padding(.vertical, 8)
+                
+                // Immunization Rate Chart (bottom)
+                VStack(spacing: 4) {
+                    HStack {
+                        Text("Immunization % (Global)")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                        Spacer()
+                    }
                     
-                    Chart(globalTotals) { data in
+                    Chart(displayData) { data in
                         LineMark(
                             x: .value("Year", data.year),
                             y: .value("Rate", data.immunizationRate)
@@ -213,44 +288,29 @@ struct GlobalTotalsChart: View {
                             RuleMark(x: .value("Current Year", data.year))
                                 .foregroundStyle(.white.opacity(0.7))
                                 .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
-                        }
-                        
-                        // Add point annotation for current year
-                        if data.year == currentYear {
+                            
                             PointMark(
                                 x: .value("Year", data.year),
                                 y: .value("Rate", data.immunizationRate)
                             )
                             .foregroundStyle(.blue)
-                            .symbolSize(60)
-                            .annotation(position: .trailing) {
+                            .symbolSize(80)
+                            .annotation(position: .topTrailing) {
                                 Text("\(Int(data.immunizationRate))%")
-                                    .font(.caption)
+                                    .font(.system(size: 15)) // Increased from ~12 to 15 (25% increase)
                                     .foregroundStyle(.blue)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
                                     .background(.blue.opacity(0.2))
                                     .cornerRadius(4)
+                                    .offset(x: 10, y: -5) // Move right and up
                             }
                         }
                     }
                     .chartYScale(domain: 0...100)
                     .chartXScale(domain: 1980...2023)
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: 10)) { value in
-                            AxisGridLine()
-                            AxisTick()
-                            AxisValueLabel {
-                                if let year = value.as(Int.self) {
-                                    Text("\(year)")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
                     .chartYAxis {
-                        AxisMarks { value in
+                        AxisMarks(position: .leading, values: [0, 20, 40, 60, 80, 100]) { value in
                             AxisGridLine()
                             AxisTick()
                             AxisValueLabel {
@@ -262,11 +322,26 @@ struct GlobalTotalsChart: View {
                             }
                         }
                     }
-                    .frame(height: 220)
+                    .chartXAxis {
+                        AxisMarks(values: .stride(by: 5)) { value in
+                            AxisGridLine()
+                            AxisTick()
+                            AxisValueLabel {
+                                if let year = value.as(Int.self) {
+                                    Text(String(year))
+                                        .font(.caption)
+                                        .foregroundStyle(.primary)
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: 140)
                 }
-                .frame(maxWidth: .infinity) // Take up more space
+                }
+                .padding(.horizontal, 16)
+                
             }
-            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity)
         }
         .padding(24)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -277,6 +352,8 @@ struct GlobalTotalsChart: View {
 extension Notification.Name {
     static let yearChanged = Notification.Name("yearChanged")
     static let resetMapPosition = Notification.Name("resetMapPosition")
+    static let sliderUpdateForStory = Notification.Name("sliderUpdateForStory")
+    static let storyModeStateChanged = Notification.Name("storyModeStateChanged")
 }
 
 #Preview(windowStyle: .automatic) {
