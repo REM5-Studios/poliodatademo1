@@ -60,11 +60,10 @@ struct HighestRegionOrnament: View {
                 }
             }
         }
-        .frame(width: 200, height: 80)
+        .frame(width: 200, height: 116)
         .padding(20)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
-        .offset(z: 30)
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int, year != currentYear && !isLoading {
                 currentYear = year
@@ -193,11 +192,10 @@ struct HighestCountryOrnament: View {
                 }
             }
         }
-        .frame(width: 200, height: 80)
+        .frame(width: 200, height: 116)
         .padding(20)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
-        .offset(z: 30)
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int, year != currentYear && !isLoading {
                 currentYear = year

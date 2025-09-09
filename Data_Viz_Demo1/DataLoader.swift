@@ -51,6 +51,13 @@ struct GlobalTotals: Identifiable {
     }
 }
 
+struct TimelineEntry {
+    let year: Int
+    let category: String
+    let headline: String
+    let subtext: String
+}
+
 struct RegionalData: Identifiable {
     let id: String
     let entity: String
@@ -74,6 +81,7 @@ final class DataLoader {
     private var caseCounts: [String: [String: Int]] = [:] // year -> country -> cases
     private(set) var globalTotals: [GlobalTotals] = [] // Global totals data for charts
     private(set) var regionalData: [RegionalData] = [] // Regional data for filtered charts
+    private(set) var timeline: [Int: TimelineEntry] = [:] // Timeline data for year info
     
     // Loading state
     private(set) var isLoaded = false
@@ -109,6 +117,7 @@ final class DataLoader {
                 group.addTask { try await self.loadCaseCounts() }
                 group.addTask { try await self.loadGlobalTotals() }
                 group.addTask { try await self.loadRegionalData() }
+                group.addTask { try await self.loadTimeline() }
                 
                 try await group.waitForAll()
             }
@@ -529,6 +538,58 @@ final class DataLoader {
         // Debug: print unique regions found
         let uniqueRegions = Set(regional.map { $0.entity })
         print("DataLoader: Found regions: \(uniqueRegions.sorted())")
+    }
+    
+    private func loadTimeline() async throws {
+        // Load timeline from JSON file
+        var url = Bundle.main.url(forResource: "polio_timeline_categories", withExtension: "json", subdirectory: "DataFiles")
+        
+        // Try without subdirectory if not found
+        if url == nil {
+            url = Bundle.main.url(forResource: "polio_timeline_categories", withExtension: "json")
+            print("DataLoader: Trying timeline file without subdirectory")
+        }
+        
+        guard let fileURL = url else {
+            print("DataLoader: Timeline file not found in bundle")
+            // Try to load from file system as fallback
+            let fileSystemPath = "/Users/amir/Documents/Amir AVP 2025 Projects/Data_Viz_Demo1/Data_Viz_Demo1/DataFiles/polio_timeline_categories.json"
+            if FileManager.default.fileExists(atPath: fileSystemPath) {
+                print("DataLoader: Loading timeline from file system")
+                let data = try Data(contentsOf: URL(fileURLWithPath: fileSystemPath))
+                try parseTimelineData(data)
+            }
+            return
+        }
+        
+        let data = try Data(contentsOf: fileURL)
+        try parseTimelineData(data)
+    }
+    
+    private func parseTimelineData(_ data: Data) throws {
+        // Parse JSON as dictionary with year strings as keys
+        if let timelineDict = try JSONSerialization.jsonObject(with: data) as? [String: [String: String]] {
+            // Convert to our timeline format
+            for (yearString, data) in timelineDict {
+                if let year = Int(yearString),
+                   let category = data["category"],
+                   let headline = data["headline"],
+                   let subtext = data["subtext"] {
+                    timeline[year] = TimelineEntry(
+                        year: year,
+                        category: category,
+                        headline: headline,
+                        subtext: subtext
+                    )
+                }
+            }
+        }
+        
+        print("DataLoader: Loaded \(timeline.count) timeline entries")
+        if timeline.count > 0 {
+            print("DataLoader: Timeline years: \(timeline.keys.sorted())")
+            print("DataLoader: Sample entry for 2012: \(timeline[2012]?.headline ?? "Not found")")
+        }
     }
 }
 

@@ -94,7 +94,229 @@ struct ContentView: View {
         ) {
             if appModel.immersiveSpaceState == .open {
                 DataOrnamentsView()
+                    .rotation3DEffect(
+                        .degrees(-33),  // Angle away from user to complement left panel
+                        axis: (x: 0, y: 1, z: 0)
+                    )
+                    .offset(z: 130)  // Closer to user than before
             }
+        }
+        .ornament(
+            attachmentAnchor: .scene(.leading),
+            contentAlignment: .center
+        ) {
+            if appModel.immersiveSpaceState == .open {
+                YearInfoPanel(currentYear: $currentYear)
+                    .rotation3DEffect(
+                        .degrees(33),  // Angle toward user
+                        axis: (x: 0, y: 1, z: 0)
+                    )
+                    .offset(y: 0)  // Center vertically
+                    .offset(z: 200)  // Matched depth with right panels
+            }
+        }
+    }
+}
+
+// MARK: - Region Selector View
+
+struct RegionSelector: View {
+    @Binding var selectedRegion: String
+    let regions: [String]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Select Region")
+                .font(.headline)
+                .foregroundStyle(.primary)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(regions, id: \.self) { region in
+                    Button(action: {
+                        selectedRegion = region
+                    }) {
+                        Text(region)
+                            .font(.subheadline)
+                            .foregroundStyle(selectedRegion == region ? .white : .primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(selectedRegion == region ? Color.blue : Color.clear)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(Color.blue, lineWidth: 1)
+                            )
+                            .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            
+            Spacer()
+        }
+        .frame(width: 180)
+        .padding()
+        .background(.regularMaterial.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - Cases Chart View
+
+struct CasesChart: View {
+    let displayData: [GlobalTotals]
+    let currentYear: Int
+    let maxCases: Double
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack {
+                Text("Cases")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                Spacer()
+            }
+            
+            Chart(displayData) { data in
+                LineMark(
+                    x: .value("Year", data.year),
+                    y: .value("Cases", data.estimatedCases)
+                )
+                .foregroundStyle(.red)
+                .lineStyle(StrokeStyle(lineWidth: 3))
+                
+                if data.year == currentYear {
+                    RuleMark(x: .value("Current Year", data.year))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineStyle(StrokeStyle(lineWidth: 2))
+                    
+                    PointMark(
+                        x: .value("Year", data.year),
+                        y: .value("Cases", data.estimatedCases)
+                    )
+                    .foregroundStyle(.red)
+                    .symbolSize(80)
+                    .annotation(position: .topTrailing) {
+                        Text("\(Int(data.estimatedCases).formatted(.number.notation(.compactName)))")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.red)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.red.opacity(0.2))
+                            .cornerRadius(4)
+                            .offset(x: 10, y: -5)
+                    }
+                }
+            }
+            .chartYScale(domain: 0...maxCases)
+            .chartXScale(domain: 1980...2023)
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel {
+                        if let cases = value.as(Double.self) {
+                            if cases == 0 {
+                                Text("0")
+                                    .font(.caption2)
+                                    .foregroundStyle(.red)
+                            } else if cases >= 1000 {
+                                Text("\(Int(cases/1000))K")
+                                    .font(.caption2)
+                                    .foregroundStyle(.red)
+                            } else {
+                                Text("\(Int(cases))")
+                                    .font(.caption2)
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: 5)) { _ in
+                    AxisGridLine()
+                }
+            }
+            .frame(height: 140)
+        }
+    }
+}
+
+// MARK: - Immunization Chart View
+
+struct ImmunizationChart: View {
+    let displayData: [GlobalTotals]
+    let currentYear: Int
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Chart(displayData) { data in
+                LineMark(
+                    x: .value("Year", data.year),
+                    y: .value("Rate", data.immunizationRate)
+                )
+                .foregroundStyle(.blue)
+                .lineStyle(StrokeStyle(lineWidth: 3))
+                
+                if data.year == currentYear {
+                    RuleMark(x: .value("Current Year", data.year))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineStyle(StrokeStyle(lineWidth: 2))
+                    
+                    PointMark(
+                        x: .value("Year", data.year),
+                        y: .value("Rate", data.immunizationRate)
+                    )
+                    .foregroundStyle(.blue)
+                    .symbolSize(80)
+                    .annotation(position: .topTrailing) {
+                        Text("\(Int(data.immunizationRate))%")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.blue)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.blue.opacity(0.2))
+                            .cornerRadius(4)
+                            .offset(x: 10, y: -5)
+                    }
+                }
+            }
+            .chartYScale(domain: 0...100)
+            .chartXScale(domain: 1980...2023)
+            .chartYAxis {
+                AxisMarks(position: .leading, values: [0, 20, 40, 60, 80, 100]) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel {
+                        if let rate = value.as(Double.self) {
+                            Text("\(Int(rate))%")
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: 5)) { value in
+                    AxisTick()
+                    AxisValueLabel {
+                        if let year = value.as(Int.self) {
+                            Text(String(year))
+                                .font(.caption)
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                }
+            }
+            .frame(height: 140)
+            
+            HStack {
+                Text("Immunization % (Global)")
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                Spacer()
+            }
+            .padding(.top, 4)
         }
     }
 }
@@ -140,41 +362,7 @@ struct GlobalTotalsChart: View {
     var body: some View {
         HStack(spacing: 20) {
             // Region selector on the left
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Select Region")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(regions, id: \.self) { region in
-                        Button(action: {
-                            selectedRegion = region
-                        }) {
-                            HStack {
-                                Image(systemName: selectedRegion == region ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(selectedRegion == region ? .blue : .secondary)
-                                    .font(.system(size: 16))
-                                
-                                Text(region)
-                                    .font(.subheadline)
-                                    .foregroundStyle(selectedRegion == region ? .primary : .secondary)
-                                
-                                Spacer()
-                            }
-                            .padding(.vertical, 4)
-                            .padding(.horizontal, 8)
-                            .background(selectedRegion == region ? Color.blue.opacity(0.1) : Color.clear)
-                            .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                
-                Spacer()
-            }
-            .frame(width: 150)
-            .padding()
-            .background(.regularMaterial.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+            RegionSelector(selectedRegion: $selectedRegion, regions: regions)
             
             // Charts on the right
             VStack(spacing: 16) {
@@ -192,151 +380,22 @@ struct GlobalTotalsChart: View {
                 
                 // Stacked charts with shared X-axis
                 VStack(spacing: 0) {
-                // Polio Cases Chart (top)
-                VStack(spacing: 4) {
-                    HStack {
-                        Text("Cases")
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                        Spacer()
-                    }
+                    // Polio Cases Chart (top)
+                    CasesChart(
+                        displayData: displayData,
+                        currentYear: currentYear,
+                        maxCases: maxCases
+                    )
                     
-                    Chart(displayData) { data in
-                        LineMark(
-                            x: .value("Year", data.year),
-                            y: .value("Cases", data.estimatedCases)
-                        )
-                        .foregroundStyle(.red)
-                        .lineStyle(StrokeStyle(lineWidth: 3))
-                        
-                        if data.year == currentYear {
-                            RuleMark(x: .value("Current Year", data.year))
-                                .foregroundStyle(.white.opacity(0.7))
-                                .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
-                            
-                            PointMark(
-                                x: .value("Year", data.year),
-                                y: .value("Cases", data.estimatedCases)
-                            )
-                            .foregroundStyle(.red)
-                            .symbolSize(80)
-                            .annotation(position: .topTrailing) {
-                                Text("\(Int(data.estimatedCases).formatted(.number.notation(.compactName)))")
-                                    .font(.system(size: 15)) // Increased from ~12 to 15 (25% increase)
-                                    .foregroundStyle(.red)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(.red.opacity(0.2))
-                                    .cornerRadius(4)
-                                    .offset(x: 10, y: -5) // Move right and up
-                            }
-                        }
-                    }
-                    .chartYScale(domain: 0...maxCases)
-                    .chartXScale(domain: 1980...2023)
-                    .chartYAxis {
-                        AxisMarks(position: .leading) { value in
-                            AxisGridLine()
-                            AxisTick()
-                            AxisValueLabel {
-                                if let cases = value.as(Double.self) {
-                                    if cases == 0 {
-                                        Text("0")
-                                            .font(.caption2)
-                                            .foregroundStyle(.red)
-                                    } else if cases < 1000 {
-                                        Text("\(Int(cases))")
-                                            .font(.caption2)
-                                            .foregroundStyle(.red)
-                                    } else {
-                                        Text("\(Int(cases/1000))K")
-                                            .font(.caption2)
-                                            .foregroundStyle(.red)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .chartXAxis(.hidden) // Hide X-axis for top chart
-                    .frame(height: 140)
-                }
-                
-                // Visual separator
-                Rectangle()
-                    .fill(.white.opacity(0.2))
-                    .frame(height: 1)
-                    .padding(.vertical, 8)
-                
-                // Immunization Rate Chart (bottom)
-                VStack(spacing: 4) {
-                    HStack {
-                        Text("Immunization % (Global)")
-                            .font(.caption)
-                            .foregroundStyle(.blue)
-                        Spacer()
-                    }
+                    // Spacing between charts
+                    Spacer()
+                        .frame(height: 16)
                     
-                    Chart(displayData) { data in
-                        LineMark(
-                            x: .value("Year", data.year),
-                            y: .value("Rate", data.immunizationRate)
-                        )
-                        .foregroundStyle(.blue)
-                        .lineStyle(StrokeStyle(lineWidth: 3))
-                        
-                        if data.year == currentYear {
-                            RuleMark(x: .value("Current Year", data.year))
-                                .foregroundStyle(.white.opacity(0.7))
-                                .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
-                            
-                            PointMark(
-                                x: .value("Year", data.year),
-                                y: .value("Rate", data.immunizationRate)
-                            )
-                            .foregroundStyle(.blue)
-                            .symbolSize(80)
-                            .annotation(position: .topTrailing) {
-                                Text("\(Int(data.immunizationRate))%")
-                                    .font(.system(size: 15)) // Increased from ~12 to 15 (25% increase)
-                                    .foregroundStyle(.blue)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(.blue.opacity(0.2))
-                                    .cornerRadius(4)
-                                    .offset(x: 10, y: -5) // Move right and up
-                            }
-                        }
-                    }
-                    .chartYScale(domain: 0...100)
-                    .chartXScale(domain: 1980...2023)
-                    .chartYAxis {
-                        AxisMarks(position: .leading, values: [0, 20, 40, 60, 80, 100]) { value in
-                            AxisGridLine()
-                            AxisTick()
-                            AxisValueLabel {
-                                if let rate = value.as(Double.self) {
-                                    Text("\(Int(rate))%")
-                                        .font(.caption2)
-                                        .foregroundStyle(.blue)
-                                }
-                            }
-                        }
-                    }
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: 5)) { value in
-                            AxisGridLine()
-                            AxisTick()
-                            AxisValueLabel {
-                                if let year = value.as(Int.self) {
-                                    Text(String(year))
-                                        .font(.caption)
-                                        .foregroundStyle(.primary)
-                                }
-                            }
-                        }
-                    }
-                    .frame(height: 140)
-                }
+                    // Immunization Rate Chart (bottom)
+                    ImmunizationChart(
+                        displayData: displayData,
+                        currentYear: currentYear
+                    )
                 }
                 .padding(.horizontal, 16)
                 
