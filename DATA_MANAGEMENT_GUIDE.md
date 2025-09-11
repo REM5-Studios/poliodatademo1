@@ -11,6 +11,11 @@ This guide documents how to update and manage data for the Polio Data Visualizat
 - **Countries**: 201 unique countries/territories
 - **Excluded**: Regional aggregates (Africa, Asia, etc.) and OWID codes
 
+## Additional Documentation
+
+- **[Data Flow Documentation](DATA_FLOW_DOCUMENTATION.md)** - Detailed technical flow from raw data to app
+- **[Unused Files Audit](UNUSED_FILES_AUDIT.md)** - List of deprecated/unused files
+
 ## Data Processing Pipeline
 
 ### 1. Obtain New Data

@@ -12,12 +12,7 @@ struct YearInfoPanel: View {
     
     // Get timeline data for current year
     private var timelineEntry: TimelineEntry? {
-        let entry = DataLoader.shared.timeline[currentYear]
-        if entry == nil {
-            print("YearInfoPanel: No timeline entry found for year \(currentYear)")
-            print("YearInfoPanel: Available years: \(DataLoader.shared.timeline.keys.sorted())")
-        }
-        return entry
+        DataLoader.shared.timeline[currentYear]
     }
     
     var body: some View {
@@ -56,7 +51,7 @@ struct YearInfoPanel: View {
                 .padding(.bottom, 16)
             
             // Subtext
-            Text(timelineEntry?.subtext ?? "Global immunization and case data for \(currentYear)")
+            Text(timelineEntry?.subtext ?? "Visualizing global polio case data for \(currentYear)")
                 .font(.body)
                 .foregroundStyle(.white.opacity(0.9))
                 .lineLimit(4)

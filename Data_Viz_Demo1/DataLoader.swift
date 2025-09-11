@@ -165,8 +165,8 @@ final class DataLoader {
             yearDataCache[year] = result // Cache successful result
             yearLoadTasks.removeValue(forKey: year) // Clean up completed task
             
-            // Simple cache limit (keep last 5 years on device for memory efficiency)
-            let maxCacheSize = 5 // Reduced for device memory constraints
+            // Simple cache limit (keep last 20 years for better performance)
+            let maxCacheSize = 20 // Increased for better user experience (only ~60KB total)
             if yearDataCache.count > maxCacheSize {
                 let oldestYear = yearDataCache.keys.min() ?? year
                 yearDataCache.removeValue(forKey: oldestYear)
@@ -402,11 +402,11 @@ final class DataLoader {
     
     private func loadRegionalData() async throws {
         // Try to find the regional data CSV file
-        var url = Bundle.main.url(forResource: "regional_polio_data", withExtension: "csv", subdirectory: "DataFiles")
-        print("DataLoader: Checking for regional_polio_data.csv in DataFiles: \(url != nil)")
+        // Note: Xcode copies all data files to the root of the bundle
+        var url = Bundle.main.url(forResource: "regional_polio_data", withExtension: "csv")
         if url == nil {
-            url = Bundle.main.url(forResource: "regional_polio_data", withExtension: "csv")
-            print("DataLoader: Checking for regional_polio_data.csv in root: \(url != nil)")
+            // Fallback to DataFiles subdirectory for future compatibility
+            url = Bundle.main.url(forResource: "regional_polio_data", withExtension: "csv", subdirectory: "DataFiles")
         }
         
         // If not in bundle, try to load from the raw data file we have
@@ -430,34 +430,18 @@ final class DataLoader {
         let content = try String(contentsOf: url, encoding: .utf8)
         let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
         
-        print("DataLoader: Regional data file has \(lines.count) lines")
-        if lines.count > 0 {
-            print("DataLoader: Header line: \(lines[0])")
-        }
-        
         // Skip header line
         var regional: [RegionalData] = []
         for (index, line) in lines.dropFirst().enumerated() {
             let columns = line.components(separatedBy: ",")
             
-            if index < 3 {
-                print("DataLoader: Line \(index): \(line)")
-                print("DataLoader: Columns count: \(columns.count)")
-            }
-            
             guard columns.count >= 5 else { 
-                if index < 3 {
-                    print("DataLoader: Skipping line \(index) - not enough columns")
-                }
                 continue 
             }
             
             // Parse the data: Year,cases,Entity,Code,immunization_rate_pct
             guard let year = Int(columns[0]),
                   let cases = Double(columns[1]) else { 
-                if index < 3 {
-                    print("DataLoader: Skipping line \(index) - cannot parse year/cases")
-                }
                 continue 
             }
             let entity = columns[2]
@@ -483,9 +467,7 @@ final class DataLoader {
     // Helper method to get data for a specific region
     func getRegionalData(for region: String) -> [GlobalTotals] {
         let regionCode = region == "World" ? "WORLD" : region.uppercased().replacingOccurrences(of: " ", with: "_")
-        print("DataLoader: Looking for region code: \(regionCode)")
         let filtered = regionalData.filter { $0.code == regionCode }
-        print("DataLoader: Found \(filtered.count) entries for \(region)")
         
         // Convert to GlobalTotals format for chart compatibility
         return filtered.map { data in
@@ -542,12 +524,11 @@ final class DataLoader {
     
     private func loadTimeline() async throws {
         // Load timeline from JSON file
-        var url = Bundle.main.url(forResource: "polio_timeline_categories", withExtension: "json", subdirectory: "DataFiles")
-        
-        // Try without subdirectory if not found
+        // Note: Xcode copies all data files to the root of the bundle
+        var url = Bundle.main.url(forResource: "polio_timeline_categories", withExtension: "json")
         if url == nil {
-            url = Bundle.main.url(forResource: "polio_timeline_categories", withExtension: "json")
-            print("DataLoader: Trying timeline file without subdirectory")
+            // Fallback to DataFiles subdirectory for future compatibility
+            url = Bundle.main.url(forResource: "polio_timeline_categories", withExtension: "json", subdirectory: "DataFiles")
         }
         
         guard let fileURL = url else {

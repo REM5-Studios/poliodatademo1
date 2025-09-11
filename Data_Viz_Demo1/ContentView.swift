@@ -12,6 +12,7 @@ import Charts
 struct ContentView: View {
     @Environment(AppModel.self) var appModel
     @State private var currentYear = 1980
+    @State private var isDataLoaded = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -113,6 +114,16 @@ struct ContentView: View {
                     )
                     .offset(y: 0)  // Center vertically
                     .offset(z: 200)  // Matched depth with right panels
+            }
+        }
+        .task {
+            // Pre-load static data when the app starts
+            // This ensures timeline data is ready before the immersive space opens
+            do {
+                try await DataLoader.shared.loadStaticData()
+                isDataLoaded = true
+            } catch {
+                print("ContentView: Failed to load static data: \(error)")
             }
         }
     }
@@ -327,17 +338,9 @@ struct GlobalTotalsChart: View {
     @Binding var currentYear: Int
     let globalTotals: [GlobalTotals]
     @State private var selectedRegion = "World"
+    @State private var displayData: [GlobalTotals] = []
     
     let regions = ["World", "Africa", "Asia", "Europe", "North America", "Oceania", "South America"]
-    
-    // Get the appropriate data based on selected region
-    private var displayData: [GlobalTotals] {
-        if selectedRegion == "World" {
-            return globalTotals
-        } else {
-            return DataLoader.shared.getRegionalData(for: selectedRegion)
-        }
-    }
     
     // Calculate maximum cases for dynamic Y-axis scaling
     private var maxCases: Double {
@@ -405,6 +408,18 @@ struct GlobalTotalsChart: View {
         .padding(24)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
+        .onAppear {
+            // Initialize with World data
+            displayData = globalTotals
+        }
+        .onChange(of: selectedRegion) { _, newRegion in
+            // Update data when region changes
+            if newRegion == "World" {
+                displayData = globalTotals
+            } else {
+                displayData = DataLoader.shared.getRegionalData(for: newRegion)
+            }
+        }
     }
 }
 

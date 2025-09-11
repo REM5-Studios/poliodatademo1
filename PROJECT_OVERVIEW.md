@@ -10,7 +10,11 @@ An Apple Vision Pro app that visualizes the global fight against polio from 1980
 
 ### For Developers  
 - [Data Management Guide](DATA_MANAGEMENT_GUIDE.md) - **How to update data**
+- [Data Flow Documentation](DATA_FLOW_DOCUMENTATION.md) - **Complete data flow from OWID to app**
 - [Data Processing Pipeline](DATA_PROCESSING_PIPELINE.md) - Quick reference for processing steps
+- [Unused Files Audit](UNUSED_FILES_AUDIT.md) - List of deprecated/unused files
+- [Map & Coordinate Files Audit](MAP_AND_COORDINATE_FILES_AUDIT.md) - Map generation and coordinate files
+- [Preserved Knowledge](PRESERVED_KNOWLEDGE_FROM_DEPRECATED_SCRIPTS.md) - Important info from deprecated scripts
 - [Coordinate System Notes](Data_Viz_Demo1/COORDINATE_SYSTEM_NOTES.md) - RealityKit coordinate learnings
 
 

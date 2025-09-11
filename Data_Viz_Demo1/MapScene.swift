@@ -271,7 +271,7 @@ struct MapScene: View {
         print("MapScene: Starting loadDataAndCreateBars...")
         
         do {
-            // Load static data
+            // Load static data (will return immediately if already loaded)
             try await DataLoader.shared.loadStaticData()
             
             // Create shared bar mesh (reuse for performance)
