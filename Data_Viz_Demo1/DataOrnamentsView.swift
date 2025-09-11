@@ -2,7 +2,7 @@
 //  DataOrnamentsView.swift
 //  Data_Viz_Demo1
 //
-//  Container for all data ornaments: Global Cases, Highest Region, Highest Country
+//  Container for all data ornaments: Global Cases, Global Immunization, Highest Country
 //
 
 import SwiftUI
@@ -11,34 +11,25 @@ struct DataOrnamentsView: View {
     var body: some View {
         VStack(spacing: 16) {
             GlobalCasesOrnament()
-            HighestRegionOrnament()
+            GlobalImmunizationOrnament()
             HighestCountryOrnament()
         }
     }
 }
 
-// MARK: - Highest Region Ornament
+// MARK: - Global Immunization Ornament
 
-struct HighestRegionOrnament: View {
+struct GlobalImmunizationOrnament: View {
     @State private var currentYear = 1980
-    @State private var highestRegion = ""
-    @State private var regionCases = 0
+    @State private var immunizationRate: Double = 0
     @State private var isLoading = false
     @State private var loadingTask: Task<Void, Never>?
     
     private let dataLoader = DataLoader.shared
     
-    // Number formatter
-    private let numberFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = true
-        return formatter
-    }()
-    
     var body: some View {
         VStack(spacing: 12) {
-            Text("Highest Region")
+            Text("Global Immunization")
                 .font(.headline)
                 .foregroundStyle(.white.opacity(0.8))
             
@@ -47,17 +38,10 @@ struct HighestRegionOrnament: View {
                     .scaleEffect(0.8)
                     .tint(.white)
             } else {
-                VStack(spacing: 4) {
-                    Text(highestRegion)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .contentTransition(.opacity)
-                    
-                    Text(numberFormatter.string(from: NSNumber(value: regionCases)) ?? "0")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .contentTransition(.numericText())
-                }
+                Text("\(Int(immunizationRate))%")
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .contentTransition(.numericText())
             }
         }
         .frame(width: 200, height: 116)
@@ -69,18 +53,18 @@ struct HighestRegionOrnament: View {
                 currentYear = year
                 
                 loadingTask?.cancel()
-                                        loadingTask = Task {
-                            try? await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds (synchronized)
-                            guard !Task.isCancelled else { return }
-                            await updateHighestRegion(for: year)
-                        }
+                loadingTask = Task {
+                    try? await Task.sleep(nanoseconds: 150_000_000) // 0.15 seconds (synchronized)
+                    guard !Task.isCancelled else { return }
+                    await updateImmunizationRate(for: year)
+                }
             }
         }
         .onAppear {
             loadingTask = Task {
                 // Get the current year from the main app
                 let initialYear = 1980  // Default to 1980 if no notification received yet
-                await updateHighestRegion(for: initialYear)
+                await updateImmunizationRate(for: initialYear)
             }
         }
         .onDisappear {
@@ -88,61 +72,15 @@ struct HighestRegionOrnament: View {
         }
     }
     
-    private func updateHighestRegion(for year: Int) async {
+    private func updateImmunizationRate(for year: Int) async {
         await MainActor.run { isLoading = true }
         
-        do {
-            guard !Task.isCancelled else { 
-                await MainActor.run { isLoading = false }
-                return 
-            }
-            
-            let yearData = try await dataLoader.loadYear(year)
-            
-            guard !Task.isCancelled else { 
-                await MainActor.run { isLoading = false }
-                return 
-            }
-            
-            // Define regional groupings of country codes
-            let regionGroups = [
-                "Africa": ["DZA", "AGO", "BEN", "BWA", "BFA", "BDI", "CMR", "CPV", "CAF", "TCD", "COM", "COG", "COD", "DJI", "EGY", "GNQ", "ERI", "SWZ", "ETH", "GAB", "GMB", "GHA", "GIN", "GNB", "CIV", "KEN", "LSO", "LBR", "LBY", "MDG", "MWI", "MLI", "MRT", "MUS", "MAR", "MOZ", "NAM", "NER", "NGA", "RWA", "STP", "SEN", "SYC", "SLE", "SOM", "ZAF", "SSD", "SDN", "TZA", "TGO", "TUN", "UGA", "ZMB", "ZWE"],
-                "Asia": ["AFG", "ARM", "AZE", "BHR", "BGD", "BTN", "BRN", "KHM", "CHN", "CYP", "GEO", "IND", "IDN", "IRN", "IRQ", "ISR", "JPN", "JOR", "KAZ", "KWT", "KGZ", "LAO", "LBN", "MYS", "MDV", "MNG", "MMR", "NPL", "PRK", "OMN", "PAK", "PSE", "PHL", "QAT", "SAU", "SGP", "KOR", "LKA", "SYR", "TWN", "TJK", "THA", "TLS", "TUR", "TKM", "ARE", "UZB", "VNM", "YEM"],
-                "Europe": ["ALB", "AND", "AUT", "BLR", "BEL", "BIH", "BGR", "HRV", "CZE", "DNK", "EST", "FIN", "FRA", "DEU", "GRC", "HUN", "ISL", "IRL", "ITA", "LVA", "LIE", "LTU", "LUX", "MLT", "MDA", "MCO", "MNE", "NLD", "MKD", "NOR", "POL", "PRT", "ROU", "RUS", "SMR", "SRB", "SVK", "SVN", "ESP", "SWE", "CHE", "UKR", "GBR", "VAT"],
-                "N. America": ["CAN", "USA", "MEX", "GTM", "BLZ", "SLV", "HND", "NIC", "CRI", "PAN"],
-                "S. America": ["ARG", "BOL", "BRA", "CHL", "COL", "ECU", "GUY", "PRY", "PER", "SUR", "URY", "VEN"],
-                "Oceania": ["AUS", "FJI", "KIR", "MHL", "FSM", "NRU", "NZL", "PLW", "PNG", "WSM", "SLB", "TON", "TUV", "VUT"]
-            ]
-            
-            // Calculate totals for each region
-            var regionTotals: [(name: String, cases: Int)] = []
-            
-            for (regionName, countryCodes) in regionGroups {
-                let regionTotal = countryCodes.compactMap { countryCode in
-                    dataLoader.getActualCases(for: countryCode, year: year)
-                }.reduce(0, +)
-                
-                if regionTotal > 0 {
-                    regionTotals.append((name: regionName, cases: regionTotal))
-                }
-            }
-            
-            // Sort by cases (highest first)
-            regionTotals.sort { $0.cases > $1.cases }
-            
-            await MainActor.run {
-                if let highest = regionTotals.first {
-                    highestRegion = highest.name
-                    regionCases = highest.cases
-                } else {
-                    highestRegion = "No Data"
-                    regionCases = 0
-                }
-                isLoading = false
-            }
-        } catch {
-            print("Highest Region Ornament: Error loading year data for \(year): \(error)")
-            await MainActor.run { isLoading = false }
+        // Get the global immunization rate from globalTotals
+        let rate = dataLoader.globalTotals.first { $0.year == year }?.immunizationRate ?? 0
+        
+        await MainActor.run {
+            immunizationRate = rate
+            isLoading = false
         }
     }
 }

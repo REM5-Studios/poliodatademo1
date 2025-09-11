@@ -18,4 +18,24 @@ class AppModel {
         case open
     }
     var immersiveSpaceState = ImmersiveSpaceState.closed
+    
+    // Track current chart view mode
+    var chartViewMode: ChartViewMode = .world
+    
+    enum ChartViewMode: Equatable {
+        case world
+        case region(String)
+        case country(code: String, name: String)
+        
+        var displayName: String {
+            switch self {
+            case .world:
+                return "World"
+            case .region(let name):
+                return name
+            case .country(_, let name):
+                return name
+            }
+        }
+    }
 }

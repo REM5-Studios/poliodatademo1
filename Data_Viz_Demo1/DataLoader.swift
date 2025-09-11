@@ -82,6 +82,7 @@ final class DataLoader {
     private(set) var globalTotals: [GlobalTotals] = [] // Global totals data for charts
     private(set) var regionalData: [RegionalData] = [] // Regional data for filtered charts
     private(set) var timeline: [Int: TimelineEntry] = [:] // Timeline data for year info
+    private var countryVaccination: [String: [String: Double]] = [:] // year -> country -> vaccination %
     
     // Loading state
     private(set) var isLoaded = false
@@ -118,6 +119,7 @@ final class DataLoader {
                 group.addTask { try await self.loadGlobalTotals() }
                 group.addTask { try await self.loadRegionalData() }
                 group.addTask { try await self.loadTimeline() }
+                group.addTask { try await self.loadCountryVaccination() }
                 
                 try await group.waitForAll()
             }
@@ -242,6 +244,11 @@ final class DataLoader {
     /// Get actual case count for a specific country and year
     func getActualCases(for countryCode: String, year: Int) -> Int? {
         return caseCounts[String(year)]?[countryCode]
+    }
+    
+    /// Get vaccination rate for a specific country and year
+    func getVaccinationRate(for countryCode: String, year: Int) -> Double? {
+        return countryVaccination[String(year)]?[countryCode]
     }
     
     // MARK: - Private Loading Methods
@@ -480,6 +487,35 @@ final class DataLoader {
         }.sorted { $0.year < $1.year }
     }
     
+    // Helper method to get data for a specific country
+    func getCountryData(for countryCode: String) -> [GlobalTotals] {
+        var countryData: [GlobalTotals] = []
+        
+        // Get case data from caseCounts
+        for (yearStr, countryCases) in caseCounts {
+            if let year = Int(yearStr),
+               let cases = countryCases[countryCode] {
+                // Get country-specific immunization rate if available
+                let immunizationRate: Double
+                if let countryRate = countryVaccination[yearStr]?[countryCode] {
+                    immunizationRate = countryRate
+                } else {
+                    // Fallback to global average if country data not available
+                    immunizationRate = globalTotals.first { $0.year == year }?.immunizationRate ?? 0
+                }
+                
+                countryData.append(GlobalTotals(
+                    year: year,
+                    estimatedCases: Double(cases),
+                    immunizationRate: immunizationRate,
+                    funding: nil
+                ))
+            }
+        }
+        
+        return countryData.sorted { $0.year < $1.year }
+    }
+    
     private func loadRegionalFromRawData(_ url: URL) async throws {
         let content = try String(contentsOf: url, encoding: .utf8)
         let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
@@ -520,6 +556,57 @@ final class DataLoader {
         // Debug: print unique regions found
         let uniqueRegions = Set(regional.map { $0.entity })
         print("DataLoader: Found regions: \(uniqueRegions.sorted())")
+    }
+    
+    private func loadCountryVaccination() async throws {
+        // Try to find the vaccination CSV file
+        var url = Bundle.main.url(forResource: "polio-vaccine-coverage-of-one-year-olds", withExtension: "csv", subdirectory: "DataFiles")
+        if url == nil {
+            // Try the raw data location
+            url = Bundle.main.url(forResource: "polio-vaccine-coverage-of-one-year-olds", withExtension: "csv", subdirectory: "WorkingFiles/FinalDataRaw")
+        }
+        
+        // If not in bundle, load from file system
+        if url == nil {
+            let fileSystemPath = "/Users/amir/Documents/Amir AVP 2025 Projects/Data_Viz_Demo1/Data_Viz_Demo1/WorkingFiles/FinalDataRaw/polio-vaccine-coverage-of-one-year-olds.csv"
+            if FileManager.default.fileExists(atPath: fileSystemPath) {
+                url = URL(fileURLWithPath: fileSystemPath)
+            }
+        }
+        
+        guard let fileURL = url else {
+            print("DataLoader: Country vaccination file not found")
+            return
+        }
+        
+        let content = try String(contentsOf: fileURL, encoding: .utf8)
+        let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        
+        // Skip header and process data
+        for line in lines.dropFirst() {
+            let columns = line.components(separatedBy: ",")
+            guard columns.count >= 4,
+                  let year = Int(columns[2]),
+                  let rate = Double(columns[3]) else { continue }
+            
+            let code = columns[1]
+            
+            // Skip regional aggregates (empty codes)
+            guard !code.isEmpty && !code.contains("OWID") else { continue }
+            
+            // Initialize year dictionary if needed
+            if countryVaccination[String(year)] == nil {
+                countryVaccination[String(year)] = [:]
+            }
+            
+            // Store vaccination rate
+            countryVaccination[String(year)]?[code] = rate
+        }
+        
+        print("DataLoader: Loaded country vaccination data for \(countryVaccination.count) years")
+        if let year2023 = countryVaccination["2023"] {
+            print("DataLoader: Sample - 2023 has vaccination data for \(year2023.count) countries")
+        }
     }
     
     private func loadTimeline() async throws {

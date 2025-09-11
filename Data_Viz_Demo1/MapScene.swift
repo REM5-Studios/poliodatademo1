@@ -707,11 +707,16 @@ struct MapScene: View {
         // Hide info box if tapping the same bar
         if selectedCountryCode == countryCode {
             selectedCountryCode = nil
+            // Also reset chart view to world
+            appModel.chartViewMode = .world
             return
         }
         
         // Create and show new info box
         selectedCountryCode = countryCode
+        
+        // Switch chart view to show this country's data
+        appModel.chartViewMode = .country(code: countryCode, name: country.name)
         
         // Change selected bar color to bright blue
         if var material = barEntity.model?.materials.first as? UnlitMaterial {

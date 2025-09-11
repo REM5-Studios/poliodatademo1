@@ -54,7 +54,7 @@ struct ContentView: View {
                         currentYear: $currentYear,
                         globalTotals: DataLoader.shared.globalTotals
                     )
-                    .frame(width: 1050, height: 400) // Increased to accommodate region selector
+                    .frame(width: 1275, height: 400) // Increased to accommodate wider chart
                     
                     Spacer()
                 }
@@ -82,8 +82,21 @@ struct ContentView: View {
             }
             
             Spacer()
+            
+            // Citation footnote
+            VStack(spacing: 4) {
+                Divider()
+                    .foregroundStyle(.white.opacity(0.2))
+                    .padding(.horizontal, 40)
+                
+                Text("Data: WHO & UNICEF (2025), UN World Population Prospects (2024), WHO (2019, 2024) – processed by Our World in Data")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.5))
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.bottom, 8)
         }
-        .frame(width: appModel.immersiveSpaceState == .open ? 1150 : 750, height: appModel.immersiveSpaceState == .open ? 650 : 500)
+        .frame(width: appModel.immersiveSpaceState == .open ? 1375 : 750, height: appModel.immersiveSpaceState == .open ? 680 : 530)
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int {
                 currentYear = year
@@ -337,89 +350,12 @@ struct ImmunizationChart: View {
 struct GlobalTotalsChart: View {
     @Binding var currentYear: Int
     let globalTotals: [GlobalTotals]
-    @State private var selectedRegion = "World"
-    @State private var displayData: [GlobalTotals] = []
-    
-    let regions = ["World", "Africa", "Asia", "Europe", "North America", "Oceania", "South America"]
-    
-    // Calculate maximum cases for dynamic Y-axis scaling
-    private var maxCases: Double {
-        let maxValue = displayData.map { $0.estimatedCases }.max() ?? 500000
-        // Round up to nearest nice number for axis
-        if maxValue < 1000 {
-            return ceil(maxValue / 100) * 100
-        } else if maxValue < 10000 {
-            return ceil(maxValue / 1000) * 1000
-        } else if maxValue < 100000 {
-            return ceil(maxValue / 10000) * 10000
-        } else {
-            return ceil(maxValue / 100000) * 100000
-        }
-    }
-    
-    // Get current year data for display
-    private var currentYearData: GlobalTotals? {
-        displayData.first { $0.year == currentYear }
-    }
+    @Environment(AppModel.self) var appModel
     
     var body: some View {
-        HStack(spacing: 20) {
-            // Region selector on the left
-            RegionSelector(selectedRegion: $selectedRegion, regions: regions)
-            
-            // Charts on the right
-            VStack(spacing: 16) {
-                VStack(spacing: 8) {
-                    Text("Cases vs. Immunization Rate")
-                        .font(.title3)
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity)
-                    
-                    Text(selectedRegion)
-                        .font(.headline)
-                        .foregroundStyle(.blue)
-                        .frame(maxWidth: .infinity)
-                }
-                
-                // Stacked charts with shared X-axis
-                VStack(spacing: 0) {
-                    // Polio Cases Chart (top)
-                    CasesChart(
-                        displayData: displayData,
-                        currentYear: currentYear,
-                        maxCases: maxCases
-                    )
-                    
-                    // Spacing between charts
-                    Spacer()
-                        .frame(height: 16)
-                    
-                    // Immunization Rate Chart (bottom)
-                    ImmunizationChart(
-                        displayData: displayData,
-                        currentYear: currentYear
-                    )
-                }
-                .padding(.horizontal, 16)
-                
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .padding(24)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
-        .onAppear {
-            // Initialize with World data
-            displayData = globalTotals
-        }
-        .onChange(of: selectedRegion) { _, newRegion in
-            // Update data when region changes
-            if newRegion == "World" {
-                displayData = globalTotals
-            } else {
-                displayData = DataLoader.shared.getRegionalData(for: newRegion)
-            }
-        }
+        // Use the new dynamic chart that responds to country/region/world selections
+        CasesVsImmunizationChart()
+            .frame(height: 640)
     }
 }
 
