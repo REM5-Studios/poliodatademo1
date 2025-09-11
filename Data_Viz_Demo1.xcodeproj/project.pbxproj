@@ -31,6 +31,10 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				"WorkingFiles/FinalDataRaw/number-of-estimated-paralytic-polio-cases-by-world-region.csv",
+				"WorkingFiles/FinalDataRaw/number-of-estimated-paralytic-polio-cases-by-world-region.metadata.json",
+				"WorkingFiles/FinalDataRaw/polio-vaccine-coverage-of-one-year-olds.csv",
+				"WorkingFiles/FinalDataRaw/polio-vaccine-coverage-of-one-year-olds.metadata.json",
 			);
 			target = 29564BED2E5A5A0D009688F7 /* Data_Viz_Demo1 */;
 		};

@@ -1,0 +1,36 @@
+{
+  "chart": {
+    "title": "Paralytic polio: estimated cases by world region",
+    "subtitle": "Estimates of the total number of paralytic [polio](#dod:polio) cases, due to [wild poliovirus](#dod:wild-poliovirus) and [vaccine-derived polioviruses](#dod:vaccine-derived-poliovirus).",
+    "citation": "World Health Organization (2019; 2024); Tebbens et al. (2010)",
+    "originalChartUrl": "https://ourworldindata.org/grapher/number-of-estimated-paralytic-polio-cases-by-world-region?v=1&csvType=full&useColumnShortNames=false",
+    "selection": [
+      "Oceania",
+      "Europe",
+      "North America",
+      "South America",
+      "Africa",
+      "Asia"
+    ]
+  },
+  "columns": {
+    "Estimated polio cases": {
+      "titleShort": "Estimated polio cases",
+      "titleLong": "Estimated polio cases",
+      "descriptionShort": "The total estimated number of polio cases.",
+      "descriptionProcessing": "Total estimated cases are calculated from reported cases using correction factors from Tebbens et al. (2010).",
+      "unit": "cases",
+      "timespan": "1980-2023",
+      "type": "Numeric",
+      "owidVariableId": 899506,
+      "shortName": "estimated_cases",
+      "lastUpdated": "2024-04-08",
+      "nextUpdate": "2025-10-11",
+      "citationShort": "World Health Organization (2019); World Health Organization (2024) – processed by Our World in Data",
+      "citationLong": "World Health Organization (2019); World Health Organization (2024) – processed by Our World in Data. “Estimated polio cases” [dataset]. World Health Organization, “WHO Historical Polio Dataset”; World Health Organization, “Polio Cases and Acute Flaccid Paralysis (AFP) Surveillance” [original data].",
+      "fullMetadata": "https://api.ourworldindata.org/v1/indicators/899506.metadata.json"
+    }
+  },
+  "dateDownloaded": "2025-09-11",
+  "activeFilters": {}
+}

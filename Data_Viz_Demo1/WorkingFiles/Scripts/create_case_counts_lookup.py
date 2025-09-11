@@ -19,50 +19,31 @@ OUTPUT_FILE = Path('Data_Viz_Demo1/DataFiles/case_counts.json')
 def load_raw_data():
     all_data = {}
     
-    # 1. Load OWID data (1980-2023)
-    owid_file = Path('Data_Viz_Demo1/WorkingFiles/RawData/owid_polio_cases.csv')
-    if owid_file.exists():
-        print(f"Loading OWID data from {owid_file}")
-        df = pd.read_csv(owid_file)
+    # 1. Load new estimated case data (1980-2023)
+    new_data_file = Path('Data_Viz_Demo1/WorkingFiles/FinalDataRaw/number-of-estimated-paralytic-polio-cases-by-world-region.csv')
+    if new_data_file.exists():
+        print(f"Loading estimated case data from {new_data_file}")
+        df = pd.read_csv(new_data_file)
         
-        # The OWID data has columns: Entity, Code, Year, Total polio cases
-        if 'Total polio cases' in df.columns:
+        # Filter out regional aggregates (only keep rows with country codes)
+        df = df[df['Code'].notna()]
+        
+        # The new data has columns: Entity, Code, Year, Estimated polio cases
+        if 'Estimated polio cases' in df.columns:
             for _, row in df.iterrows():
-                if pd.notna(row['Code']) and pd.notna(row['Total polio cases']):
+                if pd.notna(row['Code']) and pd.notna(row['Estimated polio cases']):
                     year = int(row['Year'])
                     code = row['Code']
-                    cases = int(row['Total polio cases'])
+                    # Handle float values in the data
+                    cases = int(float(row['Estimated polio cases']))
                     
                     if year not in all_data:
                         all_data[year] = {}
                     all_data[year][code] = cases
         else:
-            print("Warning: 'Total polio cases' column not found in OWID data")
+            print("Warning: 'Estimated polio cases' column not found in data")
     
-    # 2. Load wide format data (2000-2002) - this might have more precise values
-    wide_file = Path('Data_Viz_Demo1/WorkingFiles/RawData/polio_wide_values_2000_2002.csv')
-    if wide_file.exists():
-        print(f"Loading wide format data from {wide_file}")
-        df = pd.read_csv(wide_file)
-        
-        # Override with these values as they might be more precise
-        for year in ['2000', '2001', '2002']:
-            if year in df.columns:
-                year_int = int(year)
-                if year_int not in all_data:
-                    all_data[year_int] = {}
-                    
-                for _, row in df.iterrows():
-                    if pd.notna(row['Code']) and pd.notna(row[year]):
-                        code = row['Code']
-                        cases = int(float(row[year]))
-                        all_data[year_int][code] = cases
-    
-    # 3. Check for any other historical data files
-    historical_file = Path('Data_Viz_Demo1/WorkingFiles/RawData/number-of-estimated-paralytic-polio-cases-by-world-region.csv')
-    if historical_file.exists():
-        print(f"Checking regional data from {historical_file}")
-        # This file contains regional aggregates, not country-specific data
+    # No need for additional data sources - the new file has complete data
     
     return all_data
 

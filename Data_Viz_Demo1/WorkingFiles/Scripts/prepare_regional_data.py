@@ -9,10 +9,12 @@ from pathlib import Path
 # Define paths
 SCRIPT_DIR = Path(__file__).parent
 RAW_DATA_DIR = SCRIPT_DIR.parent / "RawData"
+FINAL_DATA_DIR = SCRIPT_DIR.parent / "FinalDataRaw"
 OUTPUT_DIR = SCRIPT_DIR.parent.parent / "DataFiles"
 
 # Input files
-INPUT_FILE = RAW_DATA_DIR / "number-of-estimated-paralytic-polio-cases-by-world-region.csv"
+INPUT_FILE = FINAL_DATA_DIR / "number-of-estimated-paralytic-polio-cases-by-world-region.csv"
+VACCINATION_FILE = FINAL_DATA_DIR / "polio-vaccine-coverage-of-one-year-olds.csv"
 GLOBAL_TOTALS_FILE = RAW_DATA_DIR / "Global_Polio_Totals_Simplified__1980_2023_.csv"
 
 def main():
@@ -47,13 +49,32 @@ def main():
     regional_df = pd.concat([world_totals] + regional_data, ignore_index=True)
     regional_df = regional_df.rename(columns={'Estimated polio cases': 'cases'})
     
-    # Load immunization data from global totals
-    global_df = pd.read_csv(GLOBAL_TOTALS_FILE)
+    # Load vaccination data from new source
+    vacc_df = pd.read_csv(VACCINATION_FILE)
     
-    # Merge immunization data
+    # Filter for regional data (no country codes OR World with OWID_WRL) and exclude WHO-specific regions
+    regional_vacc = vacc_df[
+        ((vacc_df['Code'].isna()) | (vacc_df['Code'] == 'OWID_WRL')) & 
+        (~vacc_df['Entity'].str.contains('WHO', na=False))
+    ].copy()
+    regional_vacc = regional_vacc.rename(columns={'Share of one-year-olds who have had three doses of the polio vaccine': 'immunization_rate_pct'})
+    
+    # Map entity names to our codes
+    entity_to_code = {
+        'World': 'WORLD',
+        'Africa': 'AFRICA',
+        'Asia': 'ASIA',
+        'Europe': 'EUROPE',
+        'North America': 'NORTH_AMERICA',
+        'Oceania': 'OCEANIA',
+        'South America': 'SOUTH_AMERICA'
+    }
+    regional_vacc['Code'] = regional_vacc['Entity'].map(entity_to_code)
+    
+    # Merge vaccination data with regional data
     regional_df = regional_df.merge(
-        global_df[['Year', 'immunization_rate_pct']], 
-        on='Year', 
+        regional_vacc[['Code', 'Year', 'immunization_rate_pct']], 
+        on=['Code', 'Year'], 
         how='left'
     )
     

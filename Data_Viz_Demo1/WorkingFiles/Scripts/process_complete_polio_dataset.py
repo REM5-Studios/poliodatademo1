@@ -12,7 +12,7 @@ import numpy as np
 SCRIPT_DIR = Path(__file__).parent
 DATA_DIR = SCRIPT_DIR.parent.parent
 OUTPUT_DIR = DATA_DIR / "DataFiles"
-INPUT_FILE = SCRIPT_DIR.parent / "RawData" / "number-of-estimated-paralytic-polio-cases-by-world-region.csv"
+INPUT_FILE = SCRIPT_DIR.parent / "FinalDataRaw" / "number-of-estimated-paralytic-polio-cases-by-world-region.csv"
 
 # Backup existing data
 BACKUP_DIR = DATA_DIR / "DataFiles_backup_before_complete_update"
@@ -56,7 +56,7 @@ def main():
     print("Processing complete polio dataset for 1980-2023...")
     
     # Backup existing data first
-    backup_existing_data()
+    # backup_existing_data()  # Skipping backup - we have git
     
     # Load data
     df = pd.read_csv(INPUT_FILE)

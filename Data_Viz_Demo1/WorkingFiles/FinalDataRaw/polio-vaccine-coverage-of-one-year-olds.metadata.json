@@ -1,0 +1,43 @@
+{
+  "chart": {
+    "title": "Share of one-year-olds who are vaccinated against polio",
+    "subtitle": "Share of one-year-olds who have received the third dose of  polio-containing vaccine. This may be either the oral or the inactivated polio vaccine.",
+    "note": "Polio is a highly infectious viral disease. The polio virus invades the nervous system and can cause irreversible paralysis.",
+    "citation": "WHO & UNICEF (2025); UN, World Population Prospects (2024)",
+    "originalChartUrl": "https://ourworldindata.org/grapher/polio-vaccine-coverage-of-one-year-olds?v=1&csvType=full&useColumnShortNames=false",
+    "selection": [
+      "World",
+      "Eastern Mediterranean Region (WHO)",
+      "Western Pacific Region (WHO)",
+      "European Region (WHO)",
+      "South-East Asia Region (WHO)",
+      "Region of the Americas (WHO)",
+      "African Region (WHO)"
+    ]
+  },
+  "columns": {
+    "Share of one-year-olds who have had three doses of the polio vaccine": {
+      "titleShort": "Share of one-year-olds who have had three doses of the polio vaccine",
+      "titleLong": "Share of one-year-olds who have had three doses of the polio vaccine",
+      "descriptionShort": "Share of one-year-olds who have had the third dose of either the oral or inactivated polio vaccine in a given year.",
+      "descriptionKey": [
+        "This chart shows official estimates of national immunization coverage published by the WHO and UNICEF. The estimates include all WHO member states, even those that did not report 2023 data. For non-reporting countries, WHO uses statistical methods to extrapolate from previously reported data, ensuring global coverage can be assessed.",
+        "Global and regional vaccination coverage is calculated using population-weighted averages. In 2023, approximately 5% of countries did not report data, requiring extrapolation from their 2022 data to maintain complete global estimates.",
+        "These estimates combine several sources: official administrative data from health facilities, coverage surveys that meet WHO quality standards, and other relevant information like vaccine supply issues or schedule changes. The accuracy of these estimates depends on how complete and reliable each country’s reporting systems are."
+      ],
+      "shortUnit": "%",
+      "unit": "%",
+      "timespan": "1980-2024",
+      "type": "Numeric",
+      "owidVariableId": 1077444,
+      "shortName": "coverage__antigen_pol3",
+      "lastUpdated": "2025-07-15",
+      "nextUpdate": "2026-07-15",
+      "citationShort": "WHO & UNICEF (2025); UN, World Population Prospects (2024) – processed by Our World in Data",
+      "citationLong": "WHO & UNICEF (2025); UN, World Population Prospects (2024) – processed by Our World in Data. “Share of one-year-olds who have had three doses of the polio vaccine” [dataset]. WHO & UNICEF, “WHO Immunization Data - Vaccination coverage”; United Nations, “World Population Prospects” [original data].",
+      "fullMetadata": "https://api.ourworldindata.org/v1/indicators/1077444.metadata.json"
+    }
+  },
+  "dateDownloaded": "2025-09-11",
+  "activeFilters": {}
+}
