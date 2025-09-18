@@ -17,17 +17,11 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header section
-            VStack(spacing: 8) {
-                Text("Global Polio Data")
-                    .font(.system(size: 36, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary)
-                
-                Text("1980-2023")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.top, 20)
-            .padding(.bottom, 20)
+            Text("Global Polio Data")
+                .font(.system(size: 36, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
             
             // Main content
             if appModel.immersiveSpaceState == .closed {
@@ -47,18 +41,11 @@ struct ContentView: View {
                 
             } else {
                 // Show global totals chart during immersive mode
-                VStack {
-                    Spacer()
-                    
-                    GlobalTotalsChart(
-                        currentYear: $currentYear,
-                        globalTotals: DataLoader.shared.globalTotals
-                    )
-                    .frame(width: 1275, height: 400) // Increased to accommodate wider chart
-                    
-                    Spacer()
-                }
-                .frame(maxHeight: .infinity)
+                GlobalTotalsChart(
+                    currentYear: $currentYear,
+                    globalTotals: DataLoader.shared.globalTotals
+                )
+                .frame(width: 1100, height: 560) // Adjusted to fit new chart dimensions
                 
                 // Reset map position button (center) - HIDDEN
                 // HStack {
@@ -81,22 +68,15 @@ struct ContentView: View {
                 // }
             }
             
-            Spacer()
-            
             // Citation footnote
-            VStack(spacing: 4) {
-                Divider()
-                    .foregroundStyle(.white.opacity(0.2))
-                    .padding(.horizontal, 40)
-                
-                Text("Data: WHO & UNICEF (2025), UN World Population Prospects (2024), WHO (2019, 2024) – processed by Our World in Data")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.5))
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.bottom, 8)
+            Text("Data: WHO & UNICEF (2025), UN World Population Prospects (2024), WHO (2019, 2024) – processed by Our World in Data")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.5))
+                .multilineTextAlignment(.center)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
         }
-        .frame(width: appModel.immersiveSpaceState == .open ? 1375 : 750, height: appModel.immersiveSpaceState == .open ? 680 : 530)
+        .frame(width: appModel.immersiveSpaceState == .open ? 1200 : 750, height: appModel.immersiveSpaceState == .open ? 700 : 530)
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int {
                 currentYear = year
@@ -112,7 +92,9 @@ struct ContentView: View {
                         .degrees(-33),  // Angle away from user to complement left panel
                         axis: (x: 0, y: 1, z: 0)
                     )
-                    .offset(z: 130)  // Closer to user than before
+                    .offset(x: 10)  // Spread apart from main window
+                    .offset(y: -5)  // Match left panel vertical alignment
+                    .offset(z: 150)  // Closer to user than left panel
             }
         }
         .ornament(
@@ -125,7 +107,8 @@ struct ContentView: View {
                         .degrees(33),  // Angle toward user
                         axis: (x: 0, y: 1, z: 0)
                     )
-                    .offset(y: 0)  // Center vertically
+                    .offset(x: -10)  // Spread apart from main window
+                    .offset(y: -5)  // Slight upward adjustment to align with chart
                     .offset(z: 200)  // Matched depth with right panels
             }
         }

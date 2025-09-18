@@ -40,7 +40,7 @@ struct GlobalCasesOrnament: View {
                     .contentTransition(.numericText())
             }
         }
-        .frame(width: 200, height: 116)
+        .frame(width: 280, height: 116)
         .padding(20)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))

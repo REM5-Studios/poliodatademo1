@@ -10,7 +10,6 @@ import Charts
 
 struct CasesVsImmunizationChart: View {
     @Environment(AppModel.self) var appModel
-    @State private var selectedRegion = "World"
     @State private var dataLoader = DataLoader.shared
     @State private var chartData: [GlobalTotals] = []
     @State private var currentYear = 1980
@@ -57,17 +56,53 @@ struct CasesVsImmunizationChart: View {
         switch appModel.chartViewMode {
         case .world:
             chartData = dataLoader.globalTotals
-            selectedRegion = "World"
         case .region(let region):
             chartData = dataLoader.getRegionalData(for: region)
-            selectedRegion = region
         case .country(let code, _):
             chartData = dataLoader.getCountryData(for: code)
         }
     }
     
+    // Check if a region is currently selected
+    private func isRegionSelected(_ regionDisplay: String) -> Bool {
+        switch appModel.chartViewMode {
+        case .world:
+            return false
+        case .region(let currentRegion):
+            // Handle the abbreviated names
+            if regionDisplay == "N. America" && currentRegion == "North America" {
+                return true
+            }
+            if regionDisplay == "S. America" && currentRegion == "South America" {
+                return true
+            }
+            return currentRegion == regionDisplay
+        case .country:
+            // When viewing a country, no region is highlighted
+            return false
+        }
+    }
+    
+    // Get flag emoji for country code
+    private func getFlagEmoji(for countryCode: String) -> String? {
+        // For special codes or non-2-letter codes, return nil
+        if countryCode.starts(with: "OWID_") || countryCode.count != 2 {
+            return nil
+        }
+        
+        // Convert ISO-2 code to flag emoji
+        let base: UInt32 = 127397
+        var emoji = ""
+        for scalar in countryCode.uppercased().unicodeScalars {
+            if let scalar = UnicodeScalar(base + scalar.value) {
+                emoji.append(String(scalar))
+            }
+        }
+        return emoji.isEmpty ? nil : emoji
+    }
+    
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             // Header with title and navigation
             VStack(alignment: .leading, spacing: 16) {
                 // Title
@@ -75,101 +110,80 @@ struct CasesVsImmunizationChart: View {
                     .font(.title2)
                     .foregroundStyle(.white)
                 
-                // Current selection display with navigation
-                HStack(spacing: 12) {
-                    // World button (always visible)
+                // Navigation section - single row
+                HStack(spacing: 10) {
+                    // World button (double width)
                     Button(action: {
-                        appModel.chartViewMode = .world
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "globe")
-                                .font(.system(size: 14))
-                            Text("World")
-                                .font(.system(size: 16, weight: appModel.chartViewMode == .world ? .bold : .regular))
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            appModel.chartViewMode = .world
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(appModel.chartViewMode == .world ? Color.blue : Color.white.opacity(0.1))
-                        )
-                        .foregroundStyle(appModel.chartViewMode == .world ? .white : .white.opacity(0.8))
+                    }) {
+                        Text("World")
+                            .font(.system(size: 15, weight: .medium))
+                            .frame(width: 90, height: 32)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(appModel.chartViewMode == .world ? Color.blue : Color.white.opacity(0.1))
+                            )
+                            .foregroundStyle(appModel.chartViewMode == .world ? .white : .white.opacity(0.8))
+                            .scaleEffect(appModel.chartViewMode == .world ? 1.05 : 1.0)
                     }
                     .buttonStyle(.plain)
+                    .hoverEffect()
                     
-                    // Show arrow and current selection if not on world view
-                    if appModel.chartViewMode != .world {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.5))
-                        
-                        // Current selection
-                        switch appModel.chartViewMode {
-                        case .region(let regionName):
-                            HStack(spacing: 4) {
-                                Image(systemName: "map")
-                                    .font(.system(size: 14))
-                                Text(regionName)
-                                    .font(.system(size: 16, weight: .bold))
+                    // Region buttons
+                    ForEach(["Africa", "Asia", "Europe", "N. America", "S. America", "Oceania"], id: \.self) { region in
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                let actualRegion = region == "N. America" ? "North America" : 
+                                                  region == "S. America" ? "South America" : region
+                                appModel.chartViewMode = .region(actualRegion)
                             }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.blue)
-                            )
-                            .foregroundStyle(.white)
-                            
-                        case .country(_, let name):
-                            HStack(spacing: 4) {
-                                Image(systemName: "flag")
-                                    .font(.system(size: 14))
-                                Text(name)
-                                    .font(.system(size: 16, weight: .bold))
-                                    .lineLimit(1)
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.blue)
-                            )
-                            .foregroundStyle(.white)
-                            
-                        case .world:
-                            EmptyView()
+                        }) {
+                            Text(region)
+                                .font(.system(size: 15, weight: .medium))
+                                .frame(width: region.contains("America") ? 100 : 85, height: 32)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(isRegionSelected(region) ? Color.blue : Color.white.opacity(0.1))
+                                )
+                                .foregroundStyle(isRegionSelected(region) ? .white : .white.opacity(0.8))
+                                .scaleEffect(isRegionSelected(region) ? 1.05 : 1.0)
                         }
+                        .buttonStyle(.plain)
+                        .hoverEffect()
+                    }
+                    
+                    // Country button next in line
+                    if case .country(let code, let name) = appModel.chartViewMode {
+                        HStack(spacing: 4) {
+                            // Add flag emoji if available
+                            if let flagEmoji = getFlagEmoji(for: code) {
+                                Text(flagEmoji)
+                                    .font(.system(size: 14))
+                            }
+                            Text(name)
+                                .font(.system(size: 15, weight: .medium))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 32)
+                        .padding(.horizontal, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.blue)
+                        )
+                        .foregroundStyle(.white)
+                        .scaleEffect(1.05)
+                        .frame(minWidth: 100, maxWidth: 180)
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.8).combined(with: .opacity),
+                            removal: .scale(scale: 0.8).combined(with: .opacity)
+                        ))
                     }
                     
                     Spacer()
-                }
-                
-                // Region quick access buttons (only show when on World view)
-                if appModel.chartViewMode == .world {
-                    HStack(spacing: 12) {
-                        Text("Select Region:")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.white.opacity(0.6))
-                            .padding(.trailing, 4)
-                        
-                        ForEach(["Africa", "Asia", "Europe", "North America", "South America", "Oceania"], id: \.self) { region in
-                            Button(action: {
-                                appModel.chartViewMode = .region(region)
-                            }) {
-                                Text(region)
-                                    .font(.system(size: 14))
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(Color.white.opacity(0.1))
-                                    )
-                                    .foregroundStyle(.white.opacity(0.8))
-                            }
-                            .buttonStyle(.plain)
-                            .hoverEffect()
-                        }
-                    }
                 }
             }
             .padding(.horizontal)
@@ -211,7 +225,14 @@ struct CasesVsImmunizationChart: View {
                         )
                         .foregroundStyle(.red)
                         .symbolSize(100)
-                        .annotation(position: .top, alignment: .center, spacing: 8) {
+                        .annotation(
+                            position: scaledCases(yearData.estimatedCases) > 85 ? .trailing :
+                                     yearData.year >= 2018 ? .topLeading : 
+                                     yearData.year <= 1985 ? .topTrailing : .top,
+                            alignment: yearData.year >= 2018 ? .trailing : 
+                                       yearData.year <= 1985 ? .leading : .center,
+                            spacing: 8
+                        ) {
                             VStack(spacing: 2) {
                                 Text("Cases")
                                     .font(.caption2)
@@ -234,7 +255,14 @@ struct CasesVsImmunizationChart: View {
                         )
                         .foregroundStyle(.blue)
                         .symbolSize(100)
-                        .annotation(position: .bottom, alignment: .center, spacing: 8) {
+                        .annotation(
+                            position: yearData.immunizationRate < 15 ? .trailing :
+                                     yearData.year >= 2018 ? .bottomLeading : 
+                                     yearData.year <= 1985 ? .bottomTrailing : .bottom,
+                            alignment: yearData.year >= 2018 ? .trailing : 
+                                       yearData.year <= 1985 ? .leading : .center,
+                            spacing: 8
+                        ) {
                             VStack(spacing: 2) {
                                 Text("Immunization")
                                     .font(.caption2)
@@ -280,10 +308,10 @@ struct CasesVsImmunizationChart: View {
                 }
                 .chartYScale(domain: -5...105) // Extend scale slightly beyond 0-100
                 .frame(height: 300)
-                .padding()
+                .padding(.horizontal, 35)  // Extra horizontal space for annotations
+                .padding(.vertical, 25)    // Extra vertical space for annotations
                 .background(.black.opacity(0.3))
                 .cornerRadius(12)
-                .padding(.vertical, 20) // Extra vertical space for annotations
             } else {
                 // Loading state
                 ProgressView("Loading data...")
@@ -311,10 +339,9 @@ struct CasesVsImmunizationChart: View {
             .font(.caption)
             .foregroundStyle(.white.opacity(0.7))
         }
-        .padding()
-        .frame(width: 825, height: 520)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .frame(width: 900, height: 540)  // Reduced height for tighter layout
         .onAppear {
             loadChartData()
         }

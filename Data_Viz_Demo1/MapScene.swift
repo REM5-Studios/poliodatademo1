@@ -391,7 +391,7 @@ struct MapScene: View {
                 // Update color using cached material
                 if materialCache[color] == nil {
                     var newMaterial = UnlitMaterial()
-                    newMaterial.color = .init(tint: UIColor(color))
+                    newMaterial.color = .init(tint: .init(color))
                     materialCache[color] = newMaterial
                 }
                 
@@ -432,7 +432,7 @@ struct MapScene: View {
             let bin = DataLoader.shared.bins[safe: previousData.bin]
             let originalColor = bin?.color ?? .gray
             if var material = previousBar.model?.materials.first as? UnlitMaterial {
-                material.color = .init(tint: UIColor(originalColor))
+                material.color = .init(tint: .init(originalColor))
                 previousBar.model?.materials = [material]
             }
         }
@@ -547,7 +547,7 @@ struct MapScene: View {
         // Update color using cached material
         if materialCache[targetColor] == nil {
             var newMaterial = UnlitMaterial()
-            newMaterial.color = .init(tint: UIColor(targetColor))
+            newMaterial.color = .init(tint: .init(targetColor))
             materialCache[targetColor] = newMaterial
         }
         
@@ -592,7 +592,7 @@ struct MapScene: View {
         
         // Use simple dark glass-like material (RealityKit can't use SwiftUI .thickMaterial)
         var glassMaterial = SimpleMaterial()
-        glassMaterial.color = .init(tint: UIColor.black.withAlphaComponent(0.7))
+        glassMaterial.color = .init(tint: .init(Color.black.opacity(0.7)))
         glassMaterial.roughness = .init(floatLiteral: 0.2)
         glassMaterial.metallic = .init(floatLiteral: 0.0)
         
@@ -609,7 +609,7 @@ struct MapScene: View {
             cornerRadius: cornerRadius + 0.001
         )
         var borderMaterial = UnlitMaterial()
-        borderMaterial.color = .init(tint: UIColor.white.withAlphaComponent(0.25))
+        borderMaterial.color = .init(tint: .init(Color.white.opacity(0.25)))
         let border = ModelEntity(mesh: borderMesh, materials: [borderMaterial])
         border.position.z = -0.002
         container.addChild(border)
@@ -664,7 +664,7 @@ struct MapScene: View {
         )
         
         var casesMaterial = UnlitMaterial()
-        casesMaterial.color = .init(tint: UIColor(white: 0.85, alpha: 1.0))
+        casesMaterial.color = .init(tint: .init(Color(white: 0.85, opacity: 1.0)))
         
         let casesText = ModelEntity(mesh: casesMesh, materials: [casesMaterial])
         // Center the cases text as well
@@ -699,7 +699,7 @@ struct MapScene: View {
             let bin = DataLoader.shared.bins[safe: previousData.bin]
             let originalColor = bin?.color ?? .gray
             if var material = previousBar.model?.materials.first as? UnlitMaterial {
-                material.color = .init(tint: UIColor(originalColor))
+                material.color = .init(tint: .init(originalColor))
                 previousBar.model?.materials = [material]
             }
         }
@@ -720,7 +720,7 @@ struct MapScene: View {
         
         // Change selected bar color to bright blue
         if var material = barEntity.model?.materials.first as? UnlitMaterial {
-            material.color = .init(tint: UIColor(red: 0, green: 0.5, blue: 1.0, alpha: 1.0))
+            material.color = .init(tint: .init(Color(red: 0, green: 0.5, blue: 1.0, opacity: 1.0)))
             barEntity.model?.materials = [material]
         }
         
