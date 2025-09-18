@@ -10,6 +10,7 @@ import SwiftUI
 struct GlobalCasesOrnament: View {
     @State private var currentYear = 1980
     @State private var globalCases = 0
+    @State private var previousYearCases = 0
     @State private var isLoading = false
     @State private var loadingTask: Task<Void, Never>?
     
@@ -24,23 +25,49 @@ struct GlobalCasesOrnament: View {
     }()
     
     var body: some View {
-        VStack(spacing: 12) {
-            Text("Total Global Cases")
-                .font(.headline)
-                .foregroundStyle(.white.opacity(0.8))
-            
-            if isLoading {
-                ProgressView()
-                    .scaleEffect(0.8)
-                    .tint(.white)
-            } else {
-                Text(numberFormatter.string(from: NSNumber(value: globalCases)) ?? "0")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
+        HStack(spacing: 0) {
+            // Left half - Title with background
+            VStack(spacing: 2) {
+                Text("Total Global")
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(.white)
-                    .contentTransition(.numericText())
+                    .multilineTextAlignment(.center)
+                Text("Cases")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
             }
+            .frame(width: 180, height: 80)
+            .background(.ultraThinMaterial.opacity(0.8), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
+            )
+            
+            // Right half - Data
+            VStack(spacing: 2) {
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .tint(.white)
+                } else {
+                    Text(numberFormatter.string(from: NSNumber(value: globalCases)) ?? "0")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .contentTransition(.numericText())
+                    
+                    if previousYearCases > 0 {
+                        let percentChange = ((Double(globalCases) - Double(previousYearCases)) / Double(previousYearCases)) * 100
+                        let changeText = percentChange >= 0 ? "↑" : "↓"
+                        Text("\(changeText) \(abs(Int(percentChange)))% from prior year")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+            }
+            .frame(width: 180, height: 80)
         }
-        .frame(width: 280, height: 116)
+        .frame(width: 360, height: 80)
         .padding(20)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
@@ -106,9 +133,25 @@ struct GlobalCasesOrnament: View {
                 return dataLoader.getActualCases(for: data.code, year: year) ?? data.value
             }.reduce(0, +)
             
+            // Get previous year data for comparison
+            var previousTotal = 0
+            if year > 1980 {
+                do {
+                    let previousYearData = try await dataLoader.loadYear(year - 1)
+                    previousTotal = previousYearData.values.compactMap { data -> Int? in
+                        guard !excludedCodes.contains(data.code) else { return nil }
+                        return dataLoader.getActualCases(for: data.code, year: year - 1) ?? data.value
+                    }.reduce(0, +)
+                } catch {
+                    // If previous year fails, just use 0
+                    previousTotal = 0
+                }
+            }
+            
             // Update UI on main actor
             await MainActor.run {
                 globalCases = total
+                previousYearCases = previousTotal
                 isLoading = false
             }
         } catch {

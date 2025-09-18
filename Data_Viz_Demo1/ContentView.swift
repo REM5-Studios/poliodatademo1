@@ -13,12 +13,13 @@ struct ContentView: View {
     @Environment(AppModel.self) var appModel
     @State private var currentYear = 1980
     @State private var isDataLoaded = false
+    @State private var showingDataInfo = false
 
     var body: some View {
         VStack(spacing: 0) {
             // Header section
             Text("Global Polio Data")
-                .font(.system(size: 36, weight: .semibold, design: .rounded))
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
                 .foregroundStyle(.primary)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
@@ -68,15 +69,8 @@ struct ContentView: View {
                 // }
             }
             
-            // Citation footnote
-            Text("Data: WHO & UNICEF (2025), UN World Population Prospects (2024), WHO (2019, 2024) – processed by Our World in Data")
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.5))
-                .multilineTextAlignment(.center)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
         }
-        .frame(width: appModel.immersiveSpaceState == .open ? 1200 : 750, height: appModel.immersiveSpaceState == .open ? 700 : 530)
+        .frame(width: appModel.immersiveSpaceState == .open ? 1200 : 750, height: appModel.immersiveSpaceState == .open ? 760 : 590)
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int {
                 currentYear = year

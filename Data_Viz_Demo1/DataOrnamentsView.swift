@@ -10,12 +10,42 @@ import SwiftUI
 struct DataOrnamentsView: View {
     var body: some View {
         VStack(spacing: 16) {
-            GlobalCasesOrnament()
-            GlobalImmunizationOrnament()
-            HighestCountryOrnament()
+            YearDisplayOrnament()
+            VStack(spacing: 8) {
+                GlobalCasesOrnament()
+                GlobalImmunizationOrnament()
+                HighestCountryOrnament()
+            }
         }
-        .frame(width: 280, height: 500)
+        .frame(width: 360, height: 500)
         .fixedSize()
+    }
+}
+
+// MARK: - Year Display Ornament
+
+struct YearDisplayOrnament: View {
+    @State private var currentYear = 1980
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("Year")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white.opacity(0.7))
+            
+            Text(String(currentYear))
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .foregroundStyle(.white)
+        }
+        .frame(width: 360, height: 60)
+        .padding(.vertical, 12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
+        .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
+            if let year = notification.userInfo?["year"] as? Int {
+                currentYear = year
+            }
+        }
     }
 }
 
@@ -24,29 +54,56 @@ struct DataOrnamentsView: View {
 struct GlobalImmunizationOrnament: View {
     @State private var currentYear = 1980
     @State private var immunizationRate: Double = 0
+    @State private var previousYearRate: Double = 0
     @State private var isLoading = false
     @State private var loadingTask: Task<Void, Never>?
     
     private let dataLoader = DataLoader.shared
     
     var body: some View {
-        VStack(spacing: 12) {
-            Text("Global Immunization")
-                .font(.headline)
-                .foregroundStyle(.white.opacity(0.8))
-            
-            if isLoading {
-                ProgressView()
-                    .scaleEffect(0.8)
-                    .tint(.white)
-            } else {
-                Text("\(Int(immunizationRate))%")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
+        HStack(spacing: 0) {
+            // Left half - Title with background
+            VStack(spacing: 2) {
+                Text("Global Immunization")
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(.white)
-                    .contentTransition(.numericText())
+                    .multilineTextAlignment(.center)
+                Text("Rate")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
             }
+            .frame(width: 180, height: 80)
+            .background(.ultraThinMaterial.opacity(0.8), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
+            )
+            
+            // Right half - Data
+            VStack(spacing: 2) {
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .tint(.white)
+                } else {
+                    Text("\(Int(immunizationRate))%")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .contentTransition(.numericText())
+                    
+                    if previousYearRate > 0 {
+                        let percentChange = immunizationRate - previousYearRate
+                        let changeText = percentChange >= 0 ? "↑" : "↓"
+                        Text("\(changeText) \(abs(Int(percentChange)))% from prior year")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+            }
+            .frame(width: 180, height: 80)
         }
-        .frame(width: 280, height: 116)
+        .frame(width: 360, height: 80)
         .padding(20)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
@@ -80,8 +137,15 @@ struct GlobalImmunizationOrnament: View {
         // Get the global immunization rate from globalTotals
         let rate = dataLoader.globalTotals.first { $0.year == year }?.immunizationRate ?? 0
         
+        // Get previous year rate for comparison
+        var previousRate: Double = 0
+        if year > 1980 {
+            previousRate = dataLoader.globalTotals.first { $0.year == year - 1 }?.immunizationRate ?? 0
+        }
+        
         await MainActor.run {
             immunizationRate = rate
+            previousYearRate = previousRate
             isLoading = false
         }
     }
@@ -107,32 +171,48 @@ struct HighestCountryOrnament: View {
     }()
     
     var body: some View {
-        VStack(spacing: 12) {
-            Text("Highest Country")
-                .font(.headline)
-                .foregroundStyle(.white.opacity(0.8))
+        HStack(spacing: 0) {
+            // Left half - Title with background
+            VStack(spacing: 2) {
+                Text("Country with")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                Text("Most Cases")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(width: 180, height: 80)
+            .background(.ultraThinMaterial.opacity(0.8), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
+            )
             
-            if isLoading {
-                ProgressView()
-                    .scaleEffect(0.8)
-                    .tint(.white)
-            } else {
-                VStack(spacing: 4) {
+            // Right half - Data
+            VStack(spacing: 2) {
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .tint(.white)
+                } else {
                     Text(highestCountry)
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.white)
                         .contentTransition(.opacity)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     
                     Text(numberFormatter.string(from: NSNumber(value: countryCases)) ?? "0")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.9))
                         .contentTransition(.numericText())
                 }
             }
+            .frame(width: 180, height: 80)
         }
-        .frame(width: 280, height: 116)
+        .frame(width: 360, height: 80)
         .padding(20)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))

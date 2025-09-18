@@ -13,6 +13,7 @@ struct CasesVsImmunizationChart: View {
     @State private var dataLoader = DataLoader.shared
     @State private var chartData: [GlobalTotals] = []
     @State private var currentYear = 1980
+    @State private var showingDataInfo = false
     
     // Calculate max cases for scaling
     private var maxCases: Double {
@@ -107,7 +108,7 @@ struct CasesVsImmunizationChart: View {
             VStack(alignment: .leading, spacing: 16) {
                 // Title
                 Text("Cases vs. Immunization Rate")
-                    .font(.title2)
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(.white)
                 
                 // Navigation section - single row
@@ -130,6 +131,7 @@ struct CasesVsImmunizationChart: View {
                     }
                     .buttonStyle(.plain)
                     .hoverEffect()
+                    .allowsHitTesting(true)
                     
                     // Region buttons
                     ForEach(["Africa", "Asia", "Europe", "N. America", "S. America", "Oceania"], id: \.self) { region in
@@ -187,6 +189,9 @@ struct CasesVsImmunizationChart: View {
                 }
             }
             .padding(.horizontal)
+            .padding(.bottom, 8)  // Extra space between buttons and chart
+            .allowsHitTesting(true)  // Ensure buttons remain interactive
+            .zIndex(1)  // Keep buttons above chart content
             
             // Chart with dual Y-axes
             if !chartData.isEmpty {
@@ -214,7 +219,7 @@ struct CasesVsImmunizationChart: View {
                     // Vertical line at current year
                     RuleMark(x: .value("Current Year", currentYear))
                         .foregroundStyle(.white.opacity(0.5))
-                        .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                        .lineStyle(StrokeStyle(lineWidth: 2))
                     
                     // Current year data points
                     if let yearData = currentYearData {
@@ -307,41 +312,117 @@ struct CasesVsImmunizationChart: View {
                     }
                 }
                 .chartYScale(domain: -5...105) // Extend scale slightly beyond 0-100
-                .frame(height: 300)
+                .frame(height: 360)  // Increased from 300 to 360
                 .padding(.horizontal, 35)  // Extra horizontal space for annotations
                 .padding(.vertical, 25)    // Extra vertical space for annotations
-                .background(.black.opacity(0.3))
+                .background(
+                    ZStack {
+                        Image("polioimage1")
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .opacity(0.2)
+                        Color.black.opacity(0.3)
+                    }
+                )
                 .cornerRadius(12)
+                .allowsHitTesting(false)  // Chart background shouldn't block interactions
             } else {
                 // Loading state
                 ProgressView("Loading data...")
-                    .frame(height: 300)
+                    .frame(height: 360)  // Increased from 300 to 360
                     .frame(maxWidth: .infinity)
-                    .background(.black.opacity(0.3))
+                    .background(
+                        ZStack {
+                            Image("polioimage1")
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .opacity(0.2)
+                            Color.black.opacity(0.3)
+                        }
+                    )
                     .cornerRadius(12)
+                    .allowsHitTesting(false)  // Loading state shouldn't block interactions
             }
             
-            // Legend
-            HStack(spacing: 24) {
-                Label("Cases", systemImage: "chart.line.uptrend.xyaxis")
-                    .foregroundStyle(.red)
-                
-                // Show appropriate label based on view mode
-                switch appModel.chartViewMode {
-                case .country(_, let name):
-                    Label("Immunization % (\(name))", systemImage: "shield.fill")
-                        .foregroundStyle(.blue)
-                case .region, .world:
-                    Label("Immunization % (Average)", systemImage: "shield.fill")
-                        .foregroundStyle(.blue)
+            Spacer()  // Push definitions and citation to bottom
+            
+            // Data definitions and citation at bottom
+            VStack(alignment: .leading, spacing: 4) {
+                // Data definitions
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Cases: Estimated paralytic polio cases including both wild and vaccine-derived poliovirus")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.6))
+                    
+                    Text("Immunization %: Share of one-year-olds who received third dose of polio vaccine")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.6))
                 }
+                
+                // Data citation with info button
+                HStack(spacing: 8) {
+                    Text("Data: WHO & UNICEF (2025), UN World Population Prospects (2024), WHO (2019, 2024) – processed by Our World in Data")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.5))
+                    
+                    Button(action: {
+                        showingDataInfo = true
+                    }) {
+                        Image(systemName: "info.circle")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showingDataInfo) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Data Details")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                
+                                Spacer()
+                                
+                                Button(action: {
+                                    showingDataInfo = false
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Cases Data:")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text("• Estimated paralytic polio cases, not just reported cases")
+                                Text("• Includes both wild poliovirus and vaccine-derived cases")
+                                Text("• Uses correction factors from Tebbens et al. (2010) to account for underreporting")
+                                
+                                Text("Immunization Data:")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .padding(.top, 4)
+                                Text("• Specifically measures third dose (Pol3) coverage")
+                                Text("• Indicates completion of primary immunization series")
+                                Text("• Global/regional rates are population-weighted averages")
+                                Text("• ~5% of countries require data extrapolation annually")
+                            }
+                            .font(.caption)
+                        }
+                        .padding()
+                        .frame(width: 320)
+                    }
+                }
+                .padding(.top, 2)
             }
-            .font(.caption)
-            .foregroundStyle(.white.opacity(0.7))
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .frame(width: 900, height: 540)  // Reduced height for tighter layout
+        .padding(.top, 16)
+        .padding(.bottom, 8)
+        .frame(width: 900, height: 600)  // Increased height to accommodate larger chart
         .onAppear {
             loadChartData()
         }
