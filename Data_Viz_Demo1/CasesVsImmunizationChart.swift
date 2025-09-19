@@ -15,9 +15,11 @@ struct CasesVsImmunizationChart: View {
     @State private var currentYear = 1980
     @State private var showingDataInfo = false
     
-    // Calculate max cases for scaling
+    // Calculate max cases for scaling with minimum axis range
     private var maxCases: Double {
-        chartData.map { $0.estimatedCases }.max() ?? 500000
+        let actualMax = chartData.map { $0.estimatedCases }.max() ?? 500000
+        let minimumAxisRange = 4000.0  // Minimum 4K range to prevent small numbers looking large
+        return max(actualMax, minimumAxisRange)
     }
     
     // Scale cases to 0-100 range for chart
@@ -39,9 +41,15 @@ struct CasesVsImmunizationChart: View {
         return formatter
     }()
     
-    // Calculate axis values for cases
+    // Calculate axis values for cases (always show nice increments)
     private var casesAxisValues: [Double] {
-        [0, 25, 50, 75, 100]
+        if maxCases <= 4000 {
+            // When using minimum axis range, show 1K increments: 0, 1K, 2K, 3K, 4K
+            [0, 25, 50, 75, 100]  // These map to 0, 1K, 2K, 3K, 4K when maxCases = 4000
+        } else {
+            // For larger ranges, use the standard 0, 25, 50, 75, 100 scaling
+            [0, 25, 50, 75, 100]
+        }
     }
     
     // Format axis labels for cases
@@ -102,6 +110,39 @@ struct CasesVsImmunizationChart: View {
         return emoji.isEmpty ? nil : emoji
     }
     
+    // Get current decade string (matching YearInfoPanel logic)
+    private var currentDecade: String {
+        if currentYear >= 2020 {
+            return "2020s"
+        } else if currentYear >= 2010 {
+            return "2010s"
+        } else if currentYear >= 2000 {
+            return "2000s"
+        } else if currentYear >= 1990 {
+            return "1990s"
+        } else {
+            return "1980s"
+        }
+    }
+    
+    // Map decades to background images
+    private var currentBackgroundImage: String {
+        switch currentDecade {
+        case "1980s":
+            return "polioimage1"  // Keep existing for 1980s
+        case "1990s":
+            return "polioimage2"
+        case "2000s":
+            return "polioimage3"
+        case "2010s":
+            return "polioimage4"
+        case "2020s":
+            return "polioimage5"
+        default:
+            return "polioimage1"  // Fallback
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 12) {
             // Header with title and navigation
@@ -134,7 +175,7 @@ struct CasesVsImmunizationChart: View {
                     .allowsHitTesting(true)
                     
                     // Region buttons
-                    ForEach(["Africa", "Asia", "Europe", "N. America", "S. America", "Oceania"], id: \.self) { region in
+                    ForEach(["Africa", "Asia", "Europe", "N. America", "S. America"], id: \.self) { region in
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 let actualRegion = region == "N. America" ? "North America" : 
@@ -178,7 +219,7 @@ struct CasesVsImmunizationChart: View {
                         )
                         .foregroundStyle(.white)
                         .scaleEffect(1.05)
-                        .frame(minWidth: 100, maxWidth: 180)
+                        .frame(minWidth: 100, maxWidth: 250)
                         .transition(.asymmetric(
                             insertion: .scale(scale: 0.8).combined(with: .opacity),
                             removal: .scale(scale: 0.8).combined(with: .opacity)
@@ -223,20 +264,26 @@ struct CasesVsImmunizationChart: View {
                     
                     // Current year data points
                     if let yearData = currentYearData {
+                        // Calculate if labels might overlap (when values are close)
+                        let casesValue = scaledCases(yearData.estimatedCases)
+                        let immunizationValue = yearData.immunizationRate
+                        let valuesAreClose = abs(casesValue - immunizationValue) < 20
+                        
                         // Cases point
                         PointMark(
                             x: .value("Year", yearData.year),
-                            y: .value("Cases", scaledCases(yearData.estimatedCases))
+                            y: .value("Cases", casesValue)
                         )
                         .foregroundStyle(.red)
                         .symbolSize(100)
                         .annotation(
-                            position: scaledCases(yearData.estimatedCases) > 85 ? .trailing :
+                            position: valuesAreClose ? .topLeading :  // Force separation when close
+                                     casesValue > 85 ? .trailing :
                                      yearData.year >= 2018 ? .topLeading : 
                                      yearData.year <= 1985 ? .topTrailing : .top,
                             alignment: yearData.year >= 2018 ? .trailing : 
                                        yearData.year <= 1985 ? .leading : .center,
-                            spacing: 8
+                            spacing: valuesAreClose ? 12 : 8  // More spacing when close
                         ) {
                             VStack(spacing: 2) {
                                 Text("Cases")
@@ -256,23 +303,24 @@ struct CasesVsImmunizationChart: View {
                         // Immunization point
                         PointMark(
                             x: .value("Year", yearData.year),
-                            y: .value("Rate", yearData.immunizationRate)
+                            y: .value("Rate", immunizationValue)
                         )
                         .foregroundStyle(.blue)
                         .symbolSize(100)
                         .annotation(
-                            position: yearData.immunizationRate < 15 ? .trailing :
+                            position: valuesAreClose ? .bottomTrailing :  // Force separation when close
+                                     immunizationValue < 15 ? .trailing :
                                      yearData.year >= 2018 ? .bottomLeading : 
                                      yearData.year <= 1985 ? .bottomTrailing : .bottom,
                             alignment: yearData.year >= 2018 ? .trailing : 
                                        yearData.year <= 1985 ? .leading : .center,
-                            spacing: 8
+                            spacing: valuesAreClose ? 12 : 8  // More spacing when close
                         ) {
                             VStack(spacing: 2) {
                                 Text("Immunization")
                                     .font(.caption2)
                                     .foregroundStyle(.blue.opacity(0.8))
-                                Text("\(Int(yearData.immunizationRate))%")
+                                Text("\(Int(immunizationValue))%")
                                     .font(.caption)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.blue)
@@ -317,10 +365,12 @@ struct CasesVsImmunizationChart: View {
                 .padding(.vertical, 25)    // Extra vertical space for annotations
                 .background(
                     ZStack {
-                        Image("polioimage1")
+                        Image(currentBackgroundImage)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .opacity(0.2)
+                            .transition(.opacity.combined(with: .scale(scale: 1.02)))
+                            .animation(.easeInOut(duration: 0.4), value: currentBackgroundImage)
                         Color.black.opacity(0.3)
                     }
                 )
@@ -333,10 +383,12 @@ struct CasesVsImmunizationChart: View {
                     .frame(maxWidth: .infinity)
                     .background(
                         ZStack {
-                            Image("polioimage1")
+                            Image(currentBackgroundImage)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .opacity(0.2)
+                                .transition(.opacity.combined(with: .scale(scale: 1.02)))
+                                .animation(.easeInOut(duration: 0.4), value: currentBackgroundImage)
                             Color.black.opacity(0.3)
                         }
                     )
@@ -369,15 +421,16 @@ struct CasesVsImmunizationChart: View {
                         showingDataInfo = true
                     }) {
                         Image(systemName: "info.circle")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(.callout)  // Bigger button
+                            .foregroundStyle(.white.opacity(0.7))
                     }
                     .buttonStyle(.plain)
+                    .hoverEffect()  // visionOS hover feedback
                     .popover(isPresented: $showingDataInfo) {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .center, spacing: 16) {
                             HStack {
-                                Text("Data Details")
-                                    .font(.headline)
+                                Text("Data Sources & Details")
+                                    .font(.title2)
                                     .fontWeight(.semibold)
                                 
                                 Spacer()
@@ -392,27 +445,47 @@ struct CasesVsImmunizationChart: View {
                                 .buttonStyle(.plain)
                             }
                             
-                            VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 12) {
                                 Text("Cases Data:")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
                                 Text("• Estimated paralytic polio cases, not just reported cases")
                                 Text("• Includes both wild poliovirus and vaccine-derived cases")
                                 Text("• Uses correction factors from Tebbens et al. (2010) to account for underreporting")
                                 
                                 Text("Immunization Data:")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                    .padding(.top, 4)
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .padding(.top, 8)
                                 Text("• Specifically measures third dose (Pol3) coverage")
                                 Text("• Indicates completion of primary immunization series")
                                 Text("• Global/regional rates are population-weighted averages")
                                 Text("• ~5% of countries require data extrapolation annually")
+                                
+                                Text("Data Sources:")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .padding(.top, 8)
+                                
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Link("WHO & UNICEF Global Polio Data", destination: URL(string: "https://immunizationdata.who.int/")!)
+                                        .font(.subheadline)
+                                    
+                                    Link("Our World in Data - Polio", destination: URL(string: "https://ourworldindata.org/polio")!)
+                                        .font(.subheadline)
+                                    
+                                    Link("Global Polio Eradication Initiative", destination: URL(string: "https://polioeradication.org/")!)
+                                        .font(.subheadline)
+                                    
+                                    Link("UN World Population Prospects", destination: URL(string: "https://population.un.org/wpp/")!)
+                                        .font(.subheadline)
+                                }
                             }
-                            .font(.caption)
+                            .font(.body)
                         }
-                        .padding()
-                        .frame(width: 320)
+                        .padding(24)
+                        .frame(width: 480)  // Wider popup
+                        .frame(maxWidth: .infinity)  // Center content
                     }
                 }
                 .padding(.top, 2)

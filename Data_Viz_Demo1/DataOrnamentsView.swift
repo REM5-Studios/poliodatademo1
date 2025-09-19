@@ -35,11 +35,12 @@ struct YearDisplayOrnament: View {
             
             Text(String(currentYear))
                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .monospacedDigit()
                 .foregroundStyle(.white)
         }
         .frame(width: 360, height: 60)
         .padding(.vertical, 12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int {
@@ -89,6 +90,7 @@ struct GlobalImmunizationOrnament: View {
                 } else {
                     Text("\(Int(immunizationRate))%")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .monospacedDigit()
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
                     
@@ -105,7 +107,7 @@ struct GlobalImmunizationOrnament: View {
         }
         .frame(width: 360, height: 80)
         .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int, year != currentYear && !isLoading {
@@ -206,6 +208,7 @@ struct HighestCountryOrnament: View {
                     
                     Text(numberFormatter.string(from: NSNumber(value: countryCases)) ?? "0")
                         .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.9))
                         .contentTransition(.numericText())
                 }
@@ -214,7 +217,7 @@ struct HighestCountryOrnament: View {
         }
         .frame(width: 360, height: 80)
         .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int, year != currentYear && !isLoading {

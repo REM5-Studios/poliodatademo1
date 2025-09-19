@@ -169,9 +169,8 @@ struct YearInfoPanel: View {
         .padding(.bottom, 20)
         .frame(width: 400, height: 500)
         .fixedSize()  // Ensure the frame stays fixed size
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(.regularMaterial.opacity(0.75), in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
-        .hoverEffect(.lift)  // VisionOS hover feedback
         .animation(.easeInOut(duration: 0.3), value: currentDecade)  // Smooth decade transitions
     }
 }

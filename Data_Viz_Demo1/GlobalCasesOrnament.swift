@@ -53,6 +53,7 @@ struct GlobalCasesOrnament: View {
                 } else {
                     Text(numberFormatter.string(from: NSNumber(value: globalCases)) ?? "0")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .monospacedDigit()
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
                     
@@ -69,7 +70,7 @@ struct GlobalCasesOrnament: View {
         }
         .frame(width: 360, height: 80)
         .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 16))
         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
         .onReceive(NotificationCenter.default.publisher(for: .yearChanged)) { notification in
             if let year = notification.userInfo?["year"] as? Int, year != currentYear && !isLoading {
